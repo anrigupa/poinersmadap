@@ -50,7 +50,7 @@ export default function ViolationLevelGauge({ points }: ViolationLevelGaugeProps
             </h3>
           </div>
           <p className="text-xs text-slate-400 mt-0.5">
-            Indikator tingkat penindakan kedisiplinan resmi SMA Negeri 2 Playen
+            Indikator tingkat penindakan kedisiplinan resmi SMAN 2 PANGKEP
           </p>
         </div>
 

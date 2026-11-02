@@ -58,7 +58,7 @@ export default function StudentDashboardClient({
                 Buku Saku Tata Tertib Siswa
               </h4>
               <p className="text-[11px] text-slate-400">
-                Pelajari pasal kedisiplinan dan sanksi resmi SMA Negeri 2 Playen
+                Pelajari pasal kedisiplinan dan sanksi resmi SMAN 2 PANGKEP
               </p>
             </div>
           </div>

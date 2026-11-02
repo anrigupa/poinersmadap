@@ -1,121 +1,88 @@
-# Project Status: SMADAP POINER (Sistem Manajemen Disiplin & Poin Pelanggaran Siswa)
+# Project Status: SMADAP POINER (SMAN 2 PANGKEP)
 
-**Version:** 1.0.0-RC1  
-**Project:** SMADAP POINER (SMA Negeri 2 Painan)  
+**Version:** 1.0.1-RC2  
+**Project:** SMADAP POINER (Sistem Manajemen Disiplin & Poin Pelanggaran Siswa)  
+**Institution:** SMAN 2 PANGKEP  
 **Last Updated:** 2026-11-02  
-**Tech Stack:** Next.js 15 (App Router), TypeScript, Tailwind CSS v4, Lucide Icons, Supabase (Auth, PostgreSQL, Row-Level Security)
+**Tech Stack:** Next.js 14/15 (App Router), TypeScript, Tailwind CSS, Lucide Icons, Supabase (Auth, PostgreSQL, Service Role Admin API, Row-Level Security)
 
 ---
 
-## 1. Executive Summary
+## Completed
 
-SMADAP POINER is an enterprise discipline management platform engineered for **SMA Negeri 2 Painan**. The system automates the recording, accumulation, sanction leveling, and monitoring of student behavioral infractions while offering multi-role access control (Admin, Teacher, and Student).
-
-All core workflows, database schemas, access guards, responsive interfaces, and validation systems have been completed and verified with clean production builds.
-
----
-
-## 2. Completed Modules
-
-| Module | Route(s) | Key Features & Implemented Capabilities | Status |
-| :--- | :--- | :--- | :---: |
-| **Authentication & Role RBAC** | `/login`, `/auth/callback` | Supabase Auth integration, session management, secure HTTP-only cookies, role-based redirection (`/admin`, `/guru`, `/siswa`), mock fallback authentication. | **Complete** |
-| **Admin Overview & Analytics** | `/admin` | Real-time metric cards (total students, violations today, active SPs), monthly violation trends (SVG bar visualizer), category distribution charts, recent activity feed. | **Complete** |
-| **Violation & Category Rules Catalog** | `/admin/rules` | CRUD categories, CRUD violation catalog items with dynamic point assignment, search, category filtering, pagination, Zod schema validation, admin authorization assertion. | **Complete** |
-| **Teacher Management** | `/admin/teachers` | Add, edit, delete teachers, instant password reset, NIP & Email validation, automatic Supabase Auth provisioning, search & pagination, admin authorization guards. | **Complete** |
-| **Student Management** | `/admin/students` | Add, edit, delete students, instant password reset, NISN/class/major filtering, real-time total points & disciplinary badge rendering, admin authorization guards. | **Complete** |
-| **Teacher Dashboard & Quick Logging** | `/guru` | Daily & monthly personal reporting counters, quick-action modal to record violations, recent personal submission timeline with point severity highlights. | **Complete** |
-| **Record Violation Workflow** | `/guru/report` | Multi-step interactive flow: (1) Searchable student selector, (2) Categorized violation selector, (3) Incident notes & date, (4) Atomic commit updating student cumulative points and sanction status. | **Complete** |
-| **Student Dashboard & Analytics** | `/siswa` | Profile summary, cumulative violation points gauge, disciplinary status badge (`Aman`, `SP1`, `SP2`, `SP3`), monthly violation trend analytics, responsible counselor/authority guidance. | **Complete** |
-| **Student Violation History** | `/siswa/history` | Chronological personal violation history, date/category filters, search, responsive table with modal inspection, strict personal data access isolation. | **Complete** |
-| **Disciplinary Calculation Engine** | `src/lib/constants/discipline.ts` | Unified single source of truth for sanction thresholds: `0-35 Aman`, `36-75 SP1`, `76-150 SP2`, `151+ SP3 (Kepala Sekolah)`. | **Complete** |
-| **Complete Security Layer** | Multiple | 4-layer defense in depth: Edge Middleware, RSC Route Guards, Server Action Assertions, and Database Row-Level Security (RLS) migrations. | **Complete** |
+| Module / Component | Route / File | Description & Capabilities |
+| :--- | :--- | :--- |
+| **Authentication & Role RBAC** | `/login`, `src/features/auth/` | Multi-portal authentication supporting Admin, Teacher (`guru`/`teacher`), and Student (`siswa`/`student`) roles with session cookies and automatic role redirection. |
+| **Admin Overview & Executive Analytics** | `/admin`, `src/features/admin/` | Real-time metrics grid, monthly violation trend SVG visualizers, category breakdowns, and recent disciplinary activity logs. |
+| **Violation & Category Rules Catalog** | `/admin/rules`, `src/features/rules/` | Full CRUD for categories and rule items, point weighting, search, filtering, pagination, and Zod schema validation. |
+| **Teacher Management** | `/admin/teachers`, `src/features/teachers/` | Add, edit, delete teachers, instant password reset, NIP & Email validation, automatic Supabase Auth account creation via Admin Service Role client. |
+| **Student Management** | `/admin/students`, `src/features/students/` | Add, edit, delete students, instant password reset, NISN/NIS/Class/Major filtering, live violation point accumulation, and automatic Supabase Auth provisioning. |
+| **Teacher Dashboard & Quick Logging** | `/guru`, `src/features/teacher-dashboard/` | Daily and monthly personal reporting stats, quick-action violation modal, and personal submission history. |
+| **Record Student Violation Workflow** | `/guru/report`, `src/features/violations/` | 4-step guided flow: (1) Searchable student selector, (2) Category & rule selector, (3) Notes & incident date, (4) Atomic point calculation & student status update. |
+| **Student Dashboard & Analytics** | `/siswa`, `src/features/student-dashboard/` | Personal profile summary, cumulative points gauge, disciplinary level badge (`Aman`, `SP1`, `SP2`, `SP3`), and monthly violation trend chart. |
+| **Student Violation History** | `/siswa/history`, `src/features/student-history/` | Chronological personal infraction log with search, category filter, pagination, and detailed inspection modal. |
+| **Unified Disciplinary Engine** | `src/lib/constants/discipline.ts` | Canonical single source of truth for sanction thresholds: `0–35 Aman`, `36–75 SP1`, `76–150 SP2`, `151+ SP3 (Kepala Sekolah)`. |
+| **4-Layer Security Architecture** | `src/middleware.ts`, `src/lib/security/guards.ts` | Edge Middleware perimeter checks, Server Component `requireRole` guards, Server Action role assertions, and PostgreSQL RLS policies. |
 
 ---
 
-## 3. Pending Modules & Roadmap
+## Recently Updated
 
-The following modules represent high-value expansions planned for subsequent development phases:
-
-1. **Student Merit & Point Deduction Module (`/siswa/merits` & `/admin/merits`)**
-   - Workflow allowing students to submit extracurricular achievement certificates (lomba akademik, kepramukaan, paskibra, OSIS).
-   - Administrative review queue to verify credentials and deduct points from the student's cumulative violation balance.
-2. **Official Sanction Letter PDF Generator (Surat Panggilan SP1, SP2, SP3)**
-   - Automated server-side generation of printable official letters with SMA Negeri 2 Painan letterhead.
-   - Dynamic injection of accumulated infractions, sanction level, counseling appointment schedule, and signature blocks for the Principal and BK Coordinator.
-3. **Counseling Progress Journal (`/guru/counseling`)**
-   - Private logging portal for Bimbingan Konseling (BK) teachers to track one-on-one student intervention sessions and parental conferences.
-4. **Automated WhatsApp / Email Alerts for Parents**
-   - Event-driven webhook integration (Twilio / WhatsApp Business Cloud API) alerting guardians whenever a severe violation or status escalation occurs.
-5. **Bulk CSV/Excel Data Importer**
-   - Mass registration tool for uploading complete student rosters, teacher cohorts, and customized disciplinary rulebooks at the start of the academic year.
+1. **Institution Rebranding to SMAN 2 PANGKEP**:
+   - Updated all UI components (`Sidebar`, `Login`, `Rules`, `StudentDashboardClient`, `ViolationLevelGauge`), metadata titles, and SQL seed scripts to **SMAN 2 PANGKEP**.
+2. **Live Supabase Database & Auth Provisioning Integration (`src/lib/supabase/admin.ts`)**:
+   - Created dedicated server-side `createAdminClient()` utilizing `SUPABASE_SERVICE_ROLE_KEY`.
+   - Upgraded `addTeacherAction`, `editTeacherAction`, `deleteTeacherAction`, `getTeachersAction` (`src/features/teachers/actions.ts`) and `addStudentAction`, `editStudentAction`, `deleteStudentAction`, `getStudentsAction` (`src/features/students/actions.ts`) to execute via Admin Service Role privileges, bypassing anonymous RLS restrictions and email confirmation bottlenecks.
+3. **Database Schema & Role Constraint Synchronization (`supabase/migrations/`)**:
+   - Added [`20261102_initial_schema.sql`](file:///home/anrigupa/Desktop/poiner/supabase/migrations/20261102_initial_schema.sql) for complete table, constraint, index, and trigger initialization.
+   - Added [`20261102_fix_profiles_role_constraint.sql`](file:///home/anrigupa/Desktop/poiner/supabase/migrations/20261102_fix_profiles_role_constraint.sql) to normalize `guru` -> `teacher` and `siswa` -> `student` inside the `handle_new_user()` PostgreSQL trigger and allow bilingual role identifiers in `chk_profiles_role`.
+   - Added [`20261102_seed_initial_rules.sql`](file:///home/anrigupa/Desktop/poiner/supabase/migrations/20261102_seed_initial_rules.sql) containing standard SMAN 2 PANGKEP disciplinary categories and rules.
+4. **Cleanup of Temporary Patch Scripts**:
+   - Ensured clean Next.js build verification across all 16 routes with zero duplicate imports or TypeScript errors.
 
 ---
 
-## 4. Known Issues
+## In Progress
 
-| ID | Issue Description | Current Impact | Planned Workaround / Mitigation |
+1. **Live End-to-End Field Verification with Supabase PostgreSQL**:
+   - Validating live teacher and student creation, real-time table rendering in `/admin/teachers` and `/admin/students`, and live violation recording in `/guru/report` against the active Supabase instance.
+2. **Rules Catalog Live Sync**:
+   - Transitioning `/admin/rules` CRUD operations to use `createAdminClient()` when `SUPABASE_SERVICE_ROLE_KEY` is present so custom rule additions persist directly into `public.violation_categories` and `public.violation_types`.
+
+---
+
+## Pending Features
+
+1. **Official Sanction Letter PDF Generator (Surat Panggilan SP1 / SP2 / SP3)**:
+   - Printable official warning letters with SMAN 2 PANGKEP letterhead, student violation ledger, counseling schedule, and signature blocks for Principal & BK Coordinator.
+2. **Student Merit & Point Deduction Module (`/siswa/merits` & `/admin/merits`)**:
+   - Restorative discipline workflow enabling students to upload achievement certificates (academic competitions, OSIS, Paskibra) to deduct violation points upon admin approval.
+3. **Bulk CSV / Excel Data Importer**:
+   - Drag-and-drop batch onboarding for student rosters and teacher accounts at the start of the academic year.
+4. **BK Counseling Progress Journal (`/guru/counseling`)**:
+   - Dedicated case management log for Guru BK to record student counseling sessions and parental follow-ups.
+5. **Automated Parent Notifications (WhatsApp / Email Gateway)**:
+   - Instant webhook alerts dispatched to parents when severe infractions or SP escalations occur.
+
+---
+
+## Known Issues
+
+| ID | Issue Summary | Root Cause | Status / Mitigation |
 | :--- | :--- | :--- | :--- |
-| **ISS-01** | **Local In-Memory Fallback State Reset** | When running without a live Supabase PostgreSQL connection, mutations are stored in memory (`mockRules`, `mockStudents`, etc.) and reset upon server restart. | Standard behavior for zero-config offline development; completely resolved once live `.env.local` Supabase credentials are configured. |
-| **ISS-02** | **Supabase Service Role Key Dependency for Teacher Password Resets** | Admin password reset for teachers in live mode requires Supabase Admin API (`supabase.auth.admin.updateUserById`), which necessitates `SUPABASE_SERVICE_ROLE_KEY`. | Added graceful error handling and clear documentation in `.env.example` regarding the service role key requirement. |
-| **ISS-03** | **Large Violation Catalog Dropdown Navigation** | On mobile screens with low vertical height, violation category selection in `/guru/report` involves extended vertical scrolling. | Introduce grouped collapsible category accordions or an autocomplete search input directly inside the violation selection step. |
+| **ISS-01** | **`chk_profiles_role` Constraint Mismatch on Signup** | Initial SQL constraint only allowed `'admin', 'teacher', 'student'`, whereas client metadata sent `'guru'` or `'siswa'`. | **Resolved in Code & Migration**: Normalized server actions to `'teacher'`/`'student'` and created `20261102_fix_profiles_role_constraint.sql`. Must be executed in Supabase SQL Editor. |
+| **ISS-02** | **Hybrid Cookie Session vs. Supabase JWT Context** | App uses custom HTTP-only cookie (`AUTH_COOKIE_NAME`) alongside Supabase SSR client, causing anon queries to be blocked by RLS when no Supabase JWT is present. | **Resolved for Teachers & Students**: Server actions now use `createAdminClient()` after verifying admin/role session via `checkAdminAccess()`. Other modules (`rules`, `violations`) should also adopt `createAdminClient()`. |
+| **ISS-03** | **Local In-Memory Fallback Reset on Server Restart** | When Supabase credentials are omitted or a query fails into fallback mode, data is stored in memory arrays (`INITIAL_STUDENTS`, `INITIAL_TEACHERS`). | **Mitigated**: Explicit error messages are now returned when live Supabase mutations fail instead of silently falling back to memory. |
 
 ---
 
-## 5. Technical Debt
+## Next Priorities
 
-1. **Dual Storage Handlers in Server Actions**:
-   - Several server actions maintain dual code paths (Supabase client query with a fallback to memory arrays). While ideal for local sandboxes, consolidating to a repository pattern or database adapter interface will improve maintainability as the codebase grows.
-2. **Mock Avatar Asset References**:
-   - User profile images reference placeholder avatars or initials. Direct integration with Supabase Storage buckets for user profile pictures and infraction photo evidence should be established.
-3. **Audit Trail Logging Table**:
-   - Administrative modifications (student deletions, manual point adjustments, rule edits) currently log to server output rather than a dedicated database-backed audit table.
-
----
-
-## 6. Security Recommendations
-
-1. **Apply Production Database RLS Migration**:
-   - Execute [`supabase/migrations/20261102_security_rls_layer.sql`](file:///home/anrigupa/Desktop/poiner/supabase/migrations/20261102_security_rls_layer.sql) on the production Supabase database instance to enforce Row-Level Security at the database layer.
-2. **Rotate & Secure `SUPABASE_SERVICE_ROLE_KEY`**:
-   - Restrict the service role key strictly to secure server runtimes (Next.js Server Actions). Ensure it is never prefixed with `NEXT_PUBLIC_` or exposed to client bundles.
-3. **Rate Limiting on Authentication & Mutation Endpoints**:
-   - Implement IP-based rate limiting on `/login` and high-frequency reporting endpoints (e.g. using Upstash Redis or Vercel KV) to prevent brute-force credential stuffing and submission floods.
-4. **Content Security Policy (CSP)**:
-   - Configure strict CSP headers in `next.config.ts` or Edge Middleware restricting script sources, frame ancestors, and object sources.
-
----
-
-## 7. Performance Recommendations
-
-1. **Database Indexing**:
-   - For high-volume student bodies (>2,000 students), ensure composite indexes on `student_violations(student_id, created_at DESC)` and `students(nisn, class, status)` are maintained in PostgreSQL.
-2. **Incremental Static Regeneration (ISR) for Disciplinary Rules**:
-   - The school violation catalog (`/admin/rules`) changes infrequently. Implement Next.js `revalidateTag('rules')` with on-demand cache revalidation instead of dynamic fetching on every page request.
-3. **Client-Side Image Optimization for Evidence**:
-   - When incident photographic evidence uploads are activated, compress images client-side via HTML5 Canvas before uploading to minimize payload size and bandwidth costs.
-4. **Turbopack Production Bundling**:
-   - Keep JavaScript client packages lightweight. Avoid bundling heavyweight chart packages; the current native SVG visualizer keeps bundle size under 90 kB.
-
----
-
-## 8. Next Development Priorities
-
-```
-[Phase 1: Operational Readiness]
-  ├── Apply Database RLS Migration (supabase/migrations/20261102_security_rls_layer.sql)
-  └── Setup Supabase Storage bucket for violation evidence photos
-
-[Phase 2: High-Priority Enhancements]
-  ├── 1. Official Sanction Letter PDF Generator (SP1, SP2, SP3)
-  ├── 2. Student Merit & Point Deduction Workflow (/siswa/merits)
-  └── 3. Bulk CSV Student & Teacher Importer
-
-[Phase 3: Integration & Notifications]
-  ├── 1. WhatsApp / Email Alert Dispatcher for Parents
-  └── 2. BK Teacher Counseling Journal (/guru/counseling)
-```
-
----
-
-*Document generated and verified against the SMADAP POINER knowledge graph.*
+1. **Execute Role Constraint Fix in Supabase SQL Editor**:
+   - Run [`supabase/migrations/20261102_fix_profiles_role_constraint.sql`](file:///home/anrigupa/Desktop/poiner/supabase/migrations/20261102_fix_profiles_role_constraint.sql) and [`supabase/migrations/20261102_seed_initial_rules.sql`](file:///home/anrigupa/Desktop/poiner/supabase/migrations/20261102_seed_initial_rules.sql) in the Supabase Dashboard.
+2. **Upgrade Remaining Server Actions to `createAdminClient()`**:
+   - Update `src/features/rules/actions.ts`, `src/features/violations/actions.ts`, `src/features/teacher-dashboard/actions.ts`, `src/features/student-dashboard/actions.ts`, and `src/features/admin/actions/overviewActions.ts` to use `createAdminClient()` so all live database reads and writes operate seamlessly with RLS enabled.
+3. **Build Official Sanction Letter (SP1/SP2/SP3) PDF Generator**:
+   - Implement printable sanction letters for SMAN 2 PANGKEP.
+4. **Build Student Merit & Point Deduction Module (`/siswa/merits`)**:
+   - Complete the restorative discipline cycle for students.

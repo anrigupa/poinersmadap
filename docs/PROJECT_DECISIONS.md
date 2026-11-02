@@ -1,7 +1,7 @@
 # Architectural & Technical Decisions: SMADAP POINER
 
 **Project:** SMADAP POINER (Sistem Manajemen Disiplin & Poin Pelanggaran Siswa)  
-**Institution:** SMA Negeri 2 Painan  
+**Institution:** SMAN 2 PANGKEP  
 **Document Version:** 1.0.0  
 **Updated:** 2026-11-02  
 

@@ -63,7 +63,7 @@ export default function LoginPage() {
 
         {/* Footer Info */}
         <div className="text-center mt-6 text-[11px] text-slate-500">
-          SMA Negeri 2 Playen &bull; Hak Cipta Dilindungi Undang-Undang
+          SMAN 2 PANGKEP &bull; Hak Cipta Dilindungi Undang-Undang
         </div>
       </div>
 

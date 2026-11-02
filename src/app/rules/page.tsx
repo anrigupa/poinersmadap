@@ -4,7 +4,7 @@ import { RULES_DATA } from "@/data/mockRules";
 
 export const metadata = {
   title: "Buku Saku Tata Tertib - SMADAP POINER",
-  description: "Katalog aturan pelanggaran dan bobot poin resmi SMA Negeri 2 Playen",
+  description: "Katalog aturan pelanggaran dan bobot poin resmi SMAN 2 PANGKEP",
 };
 
 export default function RulesPage() {
@@ -32,7 +32,7 @@ export default function RulesPage() {
             Katalog Aturan & Bobot Poin Pelanggaran
           </h1>
           <p className="text-xs sm:text-sm text-blue-100 mt-2 max-w-2xl leading-relaxed">
-            Pedoman kedisiplinan siswa SMA Negeri 2 Playen tahun ajaran aktif. Pelanggaran diklasifikasikan ke dalam kategori Ringan, Sedang, dan Berat.
+            Pedoman kedisiplinan siswa SMAN 2 PANGKEP tahun ajaran aktif. Pelanggaran diklasifikasikan ke dalam kategori Ringan, Sedang, dan Berat.
           </p>
         </div>
 

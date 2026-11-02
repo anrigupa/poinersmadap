@@ -42,7 +42,7 @@ export default function Sidebar({ role, className = "", onNavigate }: SidebarPro
                 SMADAP POINER
               </div>
               <div className="text-[11px] text-slate-400 font-medium truncate mt-1">
-                SMA Negeri 2 Playen
+                SMAN 2 PANGKEP
               </div>
             </div>
           </Link>

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentSession } from "@/features/auth/actions/authActions";
 import {
   TeacherItem,
@@ -129,7 +130,7 @@ export async function getTeachersAction(
 
   if (isSupabaseLive()) {
     try {
-      const supabase = await createClient();
+      const supabase = process.env.SUPABASE_SERVICE_ROLE_KEY ? createAdminClient() : await createClient();
       let query = supabase.from("teachers").select(
         `
         id,
@@ -279,33 +280,52 @@ export async function addTeacherAction(
 
   if (isSupabaseLive()) {
     try {
-      const supabase = await createClient();
+      const supabase = process.env.SUPABASE_SERVICE_ROLE_KEY ? createAdminClient() : await createClient();
 
       // 1. Create user account in Supabase Auth
       let authUserId: string | null = null;
 
-      // Try sign up via Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password: defaultPassword,
-        options: {
-          data: {
+      if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        const { data: adminAuthData, error: adminAuthError } = await (supabase as any).auth.admin.createUser({
+          email,
+          password: defaultPassword,
+          email_confirm: true,
+          user_metadata: {
             full_name: fullName,
-            role: "guru",
+            role: "teacher",
             nip,
           },
-        },
-      });
+        });
 
-      if (!authError && authData?.user) {
+        if (adminAuthError) {
+          throw new Error(adminAuthError.message);
+        }
+        authUserId = adminAuthData?.user?.id || null;
+      } else {
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email,
+          password: defaultPassword,
+          options: {
+            data: {
+              full_name: fullName,
+              role: "teacher",
+              nip,
+            },
+          },
+        });
+        if (authError || !authData?.user) {
+          throw new Error(authError?.message || "Gagal mendaftarkan akun di Supabase Auth.");
+        }
         authUserId = authData.user.id;
+      }
 
+      if (authUserId) {
         // 2. Insert into profiles table
         await supabase.from("profiles").upsert({
           id: authUserId,
           email,
           full_name: fullName,
-          role: "guru",
+          role: "teacher",
         });
 
         // 3. Insert into teachers table
@@ -320,11 +340,15 @@ export async function addTeacherAction(
           .select()
           .single();
 
-        if (!teacherError && teacherRecord) {
+        if (teacherError) {
+          throw new Error(teacherError.message);
+        }
+
+        if (teacherRecord) {
           revalidatePath("/admin/teachers");
           return {
             success: true,
-            message: `Guru ${fullName} berhasil ditambahkan dan Akun Supabase Auth telah otomatis dibuat!`,
+            message: `Guru ${fullName} berhasil ditambahkan dan Akun Supabase Auth telah aktif!`,
             data: {
               teacher: {
                 id: teacherRecord.id,
@@ -342,8 +366,12 @@ export async function addTeacherAction(
           };
         }
       }
-    } catch (err) {
-      console.warn("Supabase automatic user creation error:", err);
+    } catch (err: any) {
+      console.error("Supabase automatic user creation error:", err);
+      return {
+        success: false,
+        message: `Gagal menambahkan guru ke database Supabase: ${err?.message || "Terjadi kesalahan"}`,
+      };
     }
   }
 
@@ -405,7 +433,7 @@ export async function editTeacherAction(
 
   if (isSupabaseLive()) {
     try {
-      const supabase = await createClient();
+      const supabase = process.env.SUPABASE_SERVICE_ROLE_KEY ? createAdminClient() : await createClient();
 
       // Update profiles
       await supabase
@@ -469,7 +497,7 @@ export async function deleteTeacherAction(
   if (authErr) return authErr;
   if (isSupabaseLive()) {
     try {
-      const supabase = await createClient();
+      const supabase = process.env.SUPABASE_SERVICE_ROLE_KEY ? createAdminClient() : await createClient();
 
       // Delete from teachers table
       await supabase.from("teachers").delete().eq("id", id);

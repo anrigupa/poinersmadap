@@ -1,7 +1,7 @@
 # Project Roadmap: SMADAP POINER
 
 **Project:** SMADAP POINER (Sistem Manajemen Disiplin & Poin Pelanggaran Siswa)  
-**Institution:** SMA Negeri 2 Painan  
+**Institution:** SMAN 2 PANGKEP  
 **Document Version:** 1.0.0  
 **Updated:** 2026-11-02  
 
@@ -9,7 +9,7 @@
 
 ## 1. Vision & Strategic Goals
 
-SMADAP POINER transforms school discipline governance at **SMA Negeri 2 Painan** from subjective manual pen-and-paper tracking into a transparent, quantifiable, and positive-intervention ecosystem.
+SMADAP POINER transforms school discipline governance at **SMAN 2 PANGKEP** from subjective manual pen-and-paper tracking into a transparent, quantifiable, and positive-intervention ecosystem.
 
 ### Key Strategic Pillars:
 1. **Accountability & Transparency**: Real-time visibility into student discipline for administrators, teachers, and students.
@@ -68,7 +68,7 @@ timeline
 ### Phase 2: Restorative Governance & Automation *(Q4 2026 - In Progress)*
 
 #### 2.1 Official Sanction Letter PDF Generator (Surat Panggilan SP)
-- **Objective**: Generate official printable warning letters formatted according to SMA Negeri 2 Painan administrative standards.
+- **Objective**: Generate official printable warning letters formatted according to SMAN 2 PANGKEP administrative standards.
 - **Deliverables**:
   - Server-side PDF generation engine (using `@react-pdf/renderer` or native SVG-to-PDF).
   - Letter templates for SP1 (Wali Kelas & Guru BK), SP2 (Kesiswaan), and SP3 (Kepala Sekolah & Skorsing).
@@ -144,4 +144,4 @@ timeline
 
 ---
 
-*Maintained by the SMA Negeri 2 Painan System Engineering Team.*
+*Maintained by the SMAN 2 PANGKEP System Engineering Team.*

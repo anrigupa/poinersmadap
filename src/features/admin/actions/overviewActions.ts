@@ -11,7 +11,7 @@ import {
 
 /**
  * Realistic default fallback dataset representing active semester metrics
- * for SMA Negeri 2 Playen when Supabase tables are empty or initializing.
+ * for SMAN 2 PANGKEP when Supabase tables are empty or initializing.
  */
 const FALLBACK_OVERVIEW_DATA: AdminOverviewData = {
   metrics: {

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentSession } from "@/features/auth/actions/authActions";
 import { getDisciplinaryLevel } from "@/lib/constants/discipline";
 import {
@@ -218,7 +219,7 @@ function isSupabaseLive(): boolean {
 export async function getStudentSummaryAction(): Promise<StudentSummaryStats> {
   if (isSupabaseLive()) {
     try {
-      const supabase = await createClient();
+      const supabase = process.env.SUPABASE_SERVICE_ROLE_KEY ? createAdminClient() : await createClient();
       const { data } = await supabase
         .from("students")
         .select("total_violation_points, status");
@@ -269,7 +270,7 @@ export async function getStudentsAction(
 
   if (isSupabaseLive()) {
     try {
-      const supabase = await createClient();
+      const supabase = process.env.SUPABASE_SERVICE_ROLE_KEY ? createAdminClient() : await createClient();
       let query = supabase.from("students").select(
         `
           id,
@@ -514,113 +515,113 @@ export async function addStudentAction(
 
   if (isSupabaseLive()) {
     try {
-      const supabase = await createClient();
+      const supabase = process.env.SUPABASE_SERVICE_ROLE_KEY ? createAdminClient() : await createClient();
 
-      // 1. Create Supabase Auth user
-      const { data: authData, error: authError } =
-        await supabase.auth.admin.createUser({
+      let profileId: string | null = null;
+
+      if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        const { data: authData, error: authError } = await (supabase as any).auth.admin.createUser({
           email: data.email,
           password: initialPassword,
           email_confirm: true,
           user_metadata: {
             full_name: data.fullName,
-            role: "siswa",
+            role: "student",
             nis: data.nis,
             nisn: data.nisn,
             class_name: data.className,
           },
         });
 
-      let profileId: string;
-
-      if (authError || !authData.user) {
-        // Fallback: check if sign-up works with normal client
-        const { data: clientAuth, error: signUpError } =
-          await supabase.auth.signUp({
-            email: data.email,
-            password: initialPassword,
-            options: {
-              data: {
-                full_name: data.fullName,
-                role: "siswa",
-                nis: data.nis,
-                nisn: data.nisn,
-              },
+        if (authError || !authData?.user) {
+          throw new Error(authError?.message || "Gagal membuat akun login Supabase Auth.");
+        }
+        profileId = authData.user.id;
+      } else {
+        const { data: clientAuth, error: signUpError } = await supabase.auth.signUp({
+          email: data.email,
+          password: initialPassword,
+          options: {
+            data: {
+              full_name: data.fullName,
+              role: "student",
+              nis: data.nis,
+              nisn: data.nisn,
             },
-          });
+          },
+        });
 
-        if (signUpError || !clientAuth.user) {
-          throw new Error(
-            authError?.message ||
-              signUpError?.message ||
-              "Gagal membuat akun login Supabase Auth."
-          );
+        if (signUpError || !clientAuth?.user) {
+          throw new Error(signUpError?.message || "Gagal membuat akun login Supabase Auth.");
         }
         profileId = clientAuth.user.id;
-      } else {
-        profileId = authData.user.id;
       }
 
-      // 2. Ensure profile entry exists
-      await supabase.from("profiles").upsert({
-        id: profileId,
-        email: data.email,
-        full_name: data.fullName,
-        role: "siswa",
-      });
+      if (profileId) {
+        // 2. Ensure profile entry exists
+        await supabase.from("profiles").upsert({
+          id: profileId,
+          email: data.email,
+          full_name: data.fullName,
+          role: "student",
+        });
 
-      // 3. Create student record
-      const { data: newStudent, error: studentError } = await supabase
-        .from("students")
-        .insert({
-          profile_id: profileId,
-          nis: data.nis,
+        // 3. Create student record
+        const { data: newStudent, error: studentError } = await supabase
+          .from("students")
+          .insert({
+            profile_id: profileId,
+            nis: data.nis,
+            nisn: data.nisn,
+            class_name: data.className,
+            gender: data.gender,
+            parent_name: data.parentName || null,
+            parent_phone: data.parentPhone || null,
+            total_violation_points: 0,
+            total_merit_points: 0,
+            status: "active",
+          })
+          .select()
+          .single();
+
+        if (studentError) {
+          throw new Error(studentError.message);
+        }
+
+        const createdItem: StudentItem = {
+          id: newStudent.id,
+          profileId,
           nisn: data.nisn,
-          class_name: data.className,
+          nis: data.nis,
+          fullName: data.fullName,
+          email: data.email,
+          className: data.className,
+          major: data.major,
           gender: data.gender,
-          parent_name: data.parentName || null,
-          parent_phone: data.parentPhone || null,
-          total_violation_points: 0,
-          total_merit_points: 0,
+          totalViolationPoints: 0,
+          totalMeritPoints: 0,
           status: "active",
-        })
-        .select()
-        .single();
+          parentName: data.parentName || null,
+          parentPhone: data.parentPhone || null,
+          createdAt: new Date().toISOString(),
+        };
 
-      if (studentError) {
-        throw new Error(studentError.message);
+        revalidatePath("/admin/students");
+        return {
+          success: true,
+          message: `Siswa "${data.fullName}" berhasil ditambahkan dan akun Supabase Auth telah aktif.`,
+          data: {
+            student: createdItem,
+            initialPassword,
+          },
+        };
       }
-
-      const createdItem: StudentItem = {
-        id: newStudent.id,
-        profileId,
-        nisn: data.nisn,
-        nis: data.nis,
-        fullName: data.fullName,
-        email: data.email,
-        className: data.className,
-        major: data.major,
-        gender: data.gender,
-        totalViolationPoints: 0,
-        totalMeritPoints: 0,
-        status: "active",
-        parentName: data.parentName || null,
-        parentPhone: data.parentPhone || null,
-        createdAt: new Date().toISOString(),
-      };
-
-      INITIAL_STUDENTS.unshift(createdItem);
-      revalidatePath("/admin/students");
-      return {
-        success: true,
-        message: `Siswa "${data.fullName}" berhasil ditambahkan dan akun Supabase Auth telah dibuat.`,
-        data: {
-          student: createdItem,
-          initialPassword,
-        },
-      };
     } catch (err: any) {
-      console.warn("Supabase addStudent failed, using fallback:", err.message);
+      console.error("Supabase addStudent failed:", err);
+      return {
+        success: false,
+        message: `Gagal menambahkan siswa ke database Supabase: ${err?.message || "Terjadi kesalahan"}`,
+      };
     }
   }
 
@@ -680,7 +681,7 @@ export async function editStudentAction(
 
   if (isSupabaseLive()) {
     try {
-      const supabase = await createClient();
+      const supabase = process.env.SUPABASE_SERVICE_ROLE_KEY ? createAdminClient() : await createClient();
 
       // 1. Update profiles table
       await supabase
@@ -805,7 +806,7 @@ export async function deleteStudentAction(
   if (authErr) return authErr;
   if (isSupabaseLive()) {
     try {
-      const supabase = await createClient();
+      const supabase = process.env.SUPABASE_SERVICE_ROLE_KEY ? createAdminClient() : await createClient();
 
       // Delete student record
       const { error: studentErr } = await supabase
