@@ -1,0 +1,16 @@
+PANDUAN MENGGUNAKAN ASET PRIBADI ANDA:
+
+1. IKON GEMBOK 3D TRANSPARAN:
+   - Simpan file gambar gembok transparan Anda dengan nama:
+     padlock-3d.png
+   - Letakkan di dalam folder ini (public/assets/padlock-3d.png).
+   - Komponen <Padlock3DIcon /> akan otomatis menampilkan gambar Anda. Jika belum ada, aplikasi menggunakan fallback SVG Gembok Kaca 3D.
+
+2. VIDEO ANIMASI PERISAI TRANSPARAN (HASIL GENERATE GEMINI / ARGON MEDIUM):
+   - Simpan video .mp4 Anda dengan nama:
+     shield-intro.mp4
+   - Letakkan di dalam folder ini (public/assets/shield-intro.mp4).
+   - Buka file `src/app/page.tsx`, lalu ubah baris:
+     <ShieldCenterpiece useCustomVideo={false} />
+     menjadi:
+     <ShieldCenterpiece useCustomVideo={true} />
