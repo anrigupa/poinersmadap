@@ -2,8 +2,10 @@
 
 import { useState, useTransition, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   PlusCircle,
+  Zap,
   Search,
   Filter,
   RefreshCw,
@@ -13,12 +15,14 @@ import {
   Lock,
   X,
   FileSpreadsheet,
+  AlertTriangle,
 } from "lucide-react";
 import { UserProfile } from "@/types/auth";
 import {
   TeacherViolationRecord,
   TeacherDashboardStats,
   PaginatedResult,
+  ViolationDateRange,
 } from "@/features/teacher-dashboard/types";
 import { AddViolationFormData } from "@/features/teacher-dashboard/schemas";
 import {
@@ -31,6 +35,8 @@ import TeacherMetricsCards from "@/features/teacher-dashboard/components/Teacher
 import RecentSubmissionsTable from "@/features/teacher-dashboard/components/RecentSubmissionsTable";
 import AddViolationModal from "@/features/teacher-dashboard/components/AddViolationModal";
 import StudentPaginationControls from "@/features/students/components/StudentPaginationControls";
+import SectionHeader from "@/components/ui/SectionHeader";
+import Badge from "@/components/ui/Badge";
 
 interface TeacherDashboardClientProps {
   initialStats: TeacherDashboardStats;
@@ -38,6 +44,7 @@ interface TeacherDashboardClientProps {
   teacherProfile: UserProfile;
   availableStudents: StudentItem[];
   availableRules: ViolationItem[];
+  hasPartialError?: boolean;
 }
 
 export default function TeacherDashboardClient({
@@ -46,15 +53,18 @@ export default function TeacherDashboardClient({
   teacherProfile,
   availableStudents,
   availableRules,
+  hasPartialError = false,
 }: TeacherDashboardClientProps) {
+  const router = useRouter();
   const [stats, setStats] = useState<TeacherDashboardStats>(initialStats);
   const [submissions, setSubmissions] =
     useState<PaginatedResult<TeacherViolationRecord>>(initialSubmissions);
+  const [showPartialWarning, setShowPartialWarning] = useState<boolean>(hasPartialError);
 
   // Filters & Search
   const [search, setSearch] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
-  const [dateRange, setDateRange] = useState<"all" | "today" | "this_month">("all");
+  const [dateRange, setDateRange] = useState<ViolationDateRange>("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -73,16 +83,22 @@ export default function TeacherDashboardClient({
   const fetchSubmissions = useCallback(
     (overridePage?: number) => {
       startTransition(async () => {
-        const targetPage = overridePage ?? page;
-        const res = await getTeacherDashboardData(teacherProfile.id, {
-          search,
-          status: selectedStatus,
-          dateRange,
-          page: targetPage,
-          pageSize,
-        });
-        setStats(res.stats);
-        setSubmissions(res.recentSubmissions);
+        try {
+          const targetPage = overridePage ?? page;
+          const res = await getTeacherDashboardData(teacherProfile.id, {
+            search,
+            status: selectedStatus,
+            dateRange,
+            page: targetPage,
+            pageSize,
+          });
+          setStats(res.stats);
+          setSubmissions(res.recentSubmissions);
+          setShowPartialWarning(false);
+        } catch (err) {
+          console.warn("[TeacherDashboardClient] Error fetching submissions:", err);
+          setShowPartialWarning(true);
+        }
       });
     },
     [teacherProfile.id, search, selectedStatus, dateRange, page, pageSize]
@@ -121,62 +137,109 @@ export default function TeacherDashboardClient({
     return res;
   };
 
-  const roleLabel =
-    teacherProfile.specialization === "guru_bk"
-      ? "Guru Bimbingan Konseling (BK)"
-      : teacherProfile.specialization === "guru_piket"
-      ? "Guru Piket Kedisiplinan"
-      : teacherProfile.specialization === "wali_kelas"
-      ? `Wali Kelas ${teacherProfile.className || ""}`
-      : "Guru Mata Pelajaran";
+  const isCounselor =
+    teacherProfile.teacherType === "counselor" ||
+    teacherProfile.specialization === "guru_bk";
+
+  const roleLabel = isCounselor
+    ? "Guru BK"
+    : teacherProfile.specialization === "guru_piket"
+    ? "Guru Piket"
+    : teacherProfile.specialization === "wali_kelas"
+    ? "Wali Kelas"
+    : "Guru Mata Pelajaran";
+
+  const heroTitle = isCounselor
+    ? "Dashboard Konseling & Pembinaan"
+    : teacherProfile.specialization === "wali_kelas"
+    ? "Dashboard Wali Kelas"
+    : "Dashboard Guru";
+
+  const heroSubtitle = isCounselor
+    ? "Kelola pembinaan, konseling, prestasi, dan pemutihan poin siswa."
+    : "Catat pelanggaran siswa dan pantau riwayat laporan Anda dalam satu dashboard.";
+
+  const initials = teacherProfile.fullName
+    .replace(/,.*$/, "")
+    .split(" ")
+    .filter((w) => w && !w.includes("."))
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
 
   return (
-    <div className="space-y-6">
-      {/* Welcome Banner & Quick Action */}
+    <div className="space-y-8">
+      {/* Hero: Title -> Teacher Identity -> Primary Actions */}
       <div className="bg-gradient-to-r from-blue-700 via-indigo-700 to-blue-800 text-white rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="max-w-xl space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider bg-white/15 px-3 py-1 rounded-full text-blue-100 border border-white/10">
-                {roleLabel}
-              </span>
-              <span className="inline-flex items-center gap-1 text-[11px] bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 px-2.5 py-0.5 rounded-full font-medium">
-                <ShieldCheck className="w-3.5 h-3.5" />
-                Akses Terverifikasi
-              </span>
-            </div>
-
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
-              Selamat Datang, {teacherProfile.fullName}
+        <div className="relative z-10 space-y-5">
+          {/* Row 1: Title */}
+          <div className="space-y-1">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight text-white lg:whitespace-nowrap">
+              {heroTitle}
             </h1>
-
             <p className="text-blue-100 text-xs sm:text-sm leading-relaxed">
-              Catat laporan insiden kedisiplinan siswa secara cepat, objektif, dan terverifikasi.
-              Pantau riwayat laporan harian dan bulanan Anda dalam satu dashboard personal.
+              {heroSubtitle}
             </p>
-
-            {teacherProfile.nip && (
-              <div className="text-[11px] text-blue-200/90 font-mono pt-1">
-                NIP: {teacherProfile.nip}
-              </div>
-            )}
           </div>
 
-          {/* Quick Action Button & Full Workflow Link */}
-          <div className="shrink-0 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+          {/* Row 2: Teacher identity */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 pt-4 border-t border-white/15">
+            <div className="w-12 h-12 rounded-2xl bg-white/20 border border-white/30 text-white font-black text-base flex items-center justify-center shrink-0">
+              {initials || "G"}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-base sm:text-lg font-bold text-white leading-tight">
+                {teacherProfile.fullName}
+              </div>
+              {teacherProfile.nip && (
+                <div className="text-xs text-blue-100 font-mono font-semibold mt-0.5">
+                  NIP: {teacherProfile.nip}
+                </div>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+              <span className="whitespace-nowrap text-[11px] font-bold px-3 py-1 rounded-full bg-white text-blue-900 border border-white">
+                {roleLabel}
+              </span>
+              <span className="inline-flex items-center gap-1 whitespace-nowrap text-[11px] font-bold px-3 py-1 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                Pendidik Aktif
+              </span>
+            </div>
+          </div>
+
+          {/* Row 3: Primary actions */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
             <Link
               href="/guru/report"
-              className="px-5 py-3.5 rounded-2xl bg-white hover:bg-blue-50 text-blue-700 font-bold text-xs sm:text-sm transition shadow-lg shadow-blue-900/30 flex items-center justify-center gap-2 group text-center"
+              className="p-3.5 rounded-2xl bg-white hover:bg-blue-50 text-blue-950 transition shadow-lg shadow-blue-900/30 flex items-center gap-3 group"
             >
-              <PlusCircle className="w-5 h-5 text-blue-600 group-hover:scale-110 transition-transform" />
-              <span>Input Pelanggaran (Alur Lengkap)</span>
+              <div className="p-2.5 rounded-xl bg-blue-100 text-blue-700 shrink-0 group-hover:scale-105 transition-transform">
+                <PlusCircle className="w-5 h-5" />
+              </div>
+              <div className="text-left min-w-0">
+                <div className="font-bold text-sm text-blue-900">Catat Pelanggaran</div>
+                <p className="text-[11px] text-slate-600 mt-0.5 leading-snug">
+                  Gunakan alur lengkap untuk mencatat pelanggaran siswa.
+                </p>
+              </div>
             </Link>
 
             <button
+              type="button"
               onClick={() => setIsAddModalOpen(true)}
-              className="px-4 py-3.5 rounded-2xl bg-white/15 hover:bg-white/25 text-white font-semibold text-xs transition border border-white/20 flex items-center justify-center gap-2 cursor-pointer"
+              className="p-3.5 rounded-2xl bg-blue-900/40 hover:bg-blue-900/60 text-white transition border border-white/30 flex items-center gap-3 group cursor-pointer text-left"
             >
-              <span>Quick Popup</span>
+              <div className="p-2.5 rounded-xl bg-white/20 text-white shrink-0 group-hover:scale-105 transition-transform">
+                <Zap className="w-5 h-5 text-amber-300" />
+              </div>
+              <div className="text-left min-w-0">
+                <div className="font-bold text-sm text-white">Input Cepat</div>
+                <p className="text-[11px] text-blue-100 mt-0.5 leading-snug">
+                  Catat pelanggaran tanpa meninggalkan dashboard.
+                </p>
+              </div>
             </button>
           </div>
         </div>
@@ -188,13 +251,43 @@ export default function TeacherDashboardClient({
       {/* Metrics Cards: Violations Today, Violations This Month, Recent Submissions */}
       <TeacherMetricsCards stats={stats} />
 
+      {/* Partial Load Warning Banner */}
+      {showPartialWarning && (
+        <div className="p-4 rounded-2xl border border-amber-300 bg-amber-50 text-amber-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm font-semibold animate-in fade-in">
+          <div className="flex items-center gap-2.5">
+            <AlertTriangle className="w-5 h-5 text-amber-700 shrink-0" />
+            <span>Gagal memuat sebagian data. Silakan muat ulang halaman.</span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => {
+                fetchSubmissions();
+                router.refresh();
+              }}
+              disabled={isPending}
+              className="px-3.5 py-1.5 rounded-xl bg-amber-200/90 hover:bg-amber-300 active:scale-95 text-amber-950 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isPending ? "animate-spin" : ""}`} />
+              <span>Muat Ulang</span>
+            </button>
+            <button
+              onClick={() => setShowPartialWarning(false)}
+              className="p-1 rounded-lg text-amber-800 hover:text-amber-950 hover:bg-amber-100 transition"
+              title="Tutup Pesan"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Feedback Banner */}
       {banner && (
         <div
           className={`p-4 rounded-2xl border flex items-center justify-between gap-3 animate-in fade-in ${
             banner.type === "success"
-              ? "bg-emerald-50 border-emerald-200 text-emerald-900"
-              : "bg-red-50 border-red-200 text-red-900"
+              ? "bg-emerald-50 border-emerald-300 text-emerald-950 font-medium"
+              : "bg-red-50 border-red-300 text-red-950 font-medium"
           }`}
         >
           <div className="flex items-center gap-2.5 text-xs font-semibold">
@@ -211,31 +304,26 @@ export default function TeacherDashboardClient({
       )}
 
       {/* Recent Submissions Section Header & Personal Isolation Notice */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-lg font-bold text-slate-900 tracking-tight">
-              Riwayat Pengajuan Pelanggaran Pribadi
-            </h2>
-            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
-              <Lock className="w-3 h-3 text-slate-400" />
-              Akses Pribadi
-            </span>
-          </div>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Daftar laporan kedisiplinan yang Anda ajukan. Sesuai hak akses, Anda hanya dapat melihat catatan yang Anda input sendiri.
-          </p>
-        </div>
-
-        <button
-          onClick={() => fetchSubmissions()}
-          className="self-start sm:self-auto p-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition shadow-xs flex items-center gap-1.5 text-xs font-medium"
-          title="Refresh Data"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${isPending ? "animate-spin" : ""}`} />
-          <span>Refresh</span>
-        </button>
-      </div>
+      <SectionHeader
+        title="Riwayat Pengajuan Pelanggaran Pribadi"
+        description="Daftar laporan kedisiplinan yang Anda ajukan. Sesuai hak akses, Anda hanya dapat melihat catatan yang Anda input sendiri."
+        badge={
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded-md border border-slate-300">
+            <Lock className="w-3 h-3 text-slate-500" />
+            Akses Pribadi
+          </span>
+        }
+        action={
+          <button
+            onClick={() => fetchSubmissions()}
+            className="self-start sm:self-auto p-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition shadow-xs flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
+            title="Refresh Data"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isPending ? "animate-spin text-blue-600" : ""}`} />
+            <span>Refresh</span>
+          </button>
+        }
+      />
 
       {/* Filter and Search Bar for Personal Submissions */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs space-y-3">
@@ -264,12 +352,13 @@ export default function TeacherDashboardClient({
           <div>
             <select
               value={dateRange}
-              onChange={(e) => setDateRange(e.target.value as any)}
+              onChange={(e) => setDateRange(e.target.value as ViolationDateRange)}
               className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-700 focus:border-blue-500 focus:outline-hidden transition"
             >
               <option value="all">Semua Waktu</option>
-              <option value="today">Hari Ini Saja</option>
-              <option value="this_month">Bulan Ini (November 2026)</option>
+              <option value="today">Hari Ini</option>
+              <option value="this_week">Minggu Ini</option>
+              <option value="this_month">Bulan Ini</option>
             </select>
           </div>
         </div>

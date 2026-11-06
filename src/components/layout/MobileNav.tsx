@@ -4,18 +4,23 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { X } from "lucide-react";
 import Sidebar from "@/components/layout/Sidebar";
-import { MOBILE_BOTTOM_NAV } from "@/lib/constants/navigation";
-import { UserRole } from "@/types/auth";
+import { MOBILE_BOTTOM_NAV, getTeacherMobileNavigation } from "@/lib/constants/navigation";
+import { UserRole, UserProfile, normalizeRole } from "@/types/auth";
 
 interface MobileNavProps {
-  role: UserRole;
+  role?: string;
+  user?: UserProfile;
   isOpen: boolean;
   onClose: () => void;
 }
 
-export default function MobileNav({ role, isOpen, onClose }: MobileNavProps) {
+export default function MobileNav({ role, user, isOpen, onClose }: MobileNavProps) {
   const pathname = usePathname();
-  const bottomItems = MOBILE_BOTTOM_NAV[role] || MOBILE_BOTTOM_NAV.siswa;
+  const normalizedRole = normalizeRole(role || user?.role);
+  const bottomItems =
+    normalizedRole === "guru"
+      ? getTeacherMobileNavigation(user)
+      : MOBILE_BOTTOM_NAV[normalizedRole] || MOBILE_BOTTOM_NAV.siswa;
 
   return (
     <>
@@ -43,7 +48,7 @@ export default function MobileNav({ role, isOpen, onClose }: MobileNavProps) {
             </div>
 
             {/* Reused Sidebar inside Drawer */}
-            <Sidebar role={role} onNavigate={onClose} className="w-full border-none shadow-none" />
+            <Sidebar role={normalizedRole} user={user} onNavigate={onClose} className="w-full border-none shadow-none" />
           </div>
         </div>
       )}
@@ -54,7 +59,9 @@ export default function MobileNav({ role, isOpen, onClose }: MobileNavProps) {
         className="fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200/80 px-2 py-1.5 flex items-center justify-around sm:hidden select-none"
       >
         {bottomItems.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive =
+            pathname === item.href ||
+            (item.href === "/guru" && pathname.startsWith("/guru/report"));
           const Icon = item.icon;
 
           return (

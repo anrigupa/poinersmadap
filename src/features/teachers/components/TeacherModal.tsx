@@ -3,9 +3,9 @@
 import { useEffect, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { X, UserPlus, Save, ShieldCheck, KeyRound, Sparkles } from "lucide-react";
+import { X, UserPlus, Save, ShieldCheck, KeyRound, Headset, BookOpen, Phone } from "lucide-react";
 import { teacherFormSchema, TeacherFormData } from "@/features/teachers/schemas";
-import { TeacherItem, TeacherSpecialization } from "@/features/teachers/types";
+import { TeacherItem, TeacherSpecialization, TeacherType } from "@/features/teachers/types";
 import { addTeacherAction, editTeacherAction } from "@/features/teachers/actions";
 
 interface TeacherModalProps {
@@ -36,21 +36,30 @@ export default function TeacherModal({
       nip: "",
       fullName: "",
       email: "",
-      specialization: "guru_piket",
+      teacher_type: "teacher",
+      specialization: "guru_mapel",
+      phoneNumber: "",
       assignedClass: "",
       temporaryPassword: "Guru123!",
     },
   });
 
+  const selectedTeacherType = watch("teacher_type");
   const selectedSpecialization = watch("specialization");
 
   useEffect(() => {
     if (teacherToEdit) {
+      const resolvedType: TeacherType =
+        teacherToEdit.teacher_type === "counselor" || teacherToEdit.specialization === "guru_bk"
+          ? "counselor"
+          : "teacher";
       reset({
         nip: teacherToEdit.nip,
         fullName: teacherToEdit.fullName,
         email: teacherToEdit.email,
+        teacher_type: resolvedType,
         specialization: teacherToEdit.specialization as TeacherSpecialization,
+        phoneNumber: teacherToEdit.phoneNumber || "",
         assignedClass: teacherToEdit.assignedClass || "",
         temporaryPassword: "",
       });
@@ -59,12 +68,23 @@ export default function TeacherModal({
         nip: "",
         fullName: "",
         email: "",
-        specialization: "guru_piket",
+        teacher_type: "teacher",
+        specialization: "guru_mapel",
+        phoneNumber: "",
         assignedClass: "",
         temporaryPassword: "Guru123!",
       });
     }
   }, [teacherToEdit, reset, isOpen]);
+
+  const handleTeacherTypeChange = (type: TeacherType) => {
+    setValue("teacher_type", type, { shouldValidate: true });
+    if (type === "counselor") {
+      setValue("specialization", "guru_bk", { shouldValidate: true });
+    } else if (selectedSpecialization === "guru_bk") {
+      setValue("specialization", "guru_mapel", { shouldValidate: true });
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -153,22 +173,107 @@ export default function TeacherModal({
             {errors.fullName && <p className="text-[11px] text-rose-500 mt-1">{errors.fullName.message}</p>}
           </div>
 
-          {/* Email Field */}
+          {/* Email & Phone Number Fields */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Alamat Email (Username Akun) <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="email"
+                {...register("email")}
+                placeholder="Contoh: guru.bk@smadap.sch.id"
+                className={`w-full px-3.5 py-2.5 rounded-xl border text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 transition ${
+                  errors.email
+                    ? "border-rose-300 focus:ring-rose-200"
+                    : "border-slate-200 focus:ring-blue-500/20 focus:border-blue-600"
+                }`}
+              />
+              {errors.email && <p className="text-[11px] text-rose-500 mt-1">{errors.email.message}</p>}
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Nomor HP / WhatsApp <span className="text-rose-500">*</span>
+              </label>
+              <div className="relative">
+                <Phone className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  {...register("phoneNumber")}
+                  placeholder="Contoh: 081234567890"
+                  className={`w-full pl-8 pr-3.5 py-2.5 rounded-xl border text-xs font-mono text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 transition ${
+                    errors.phoneNumber
+                      ? "border-rose-300 focus:ring-rose-200"
+                      : "border-slate-200 focus:ring-blue-500/20 focus:border-blue-600"
+                  }`}
+                />
+              </div>
+              {errors.phoneNumber && (
+                <p className="text-[11px] text-rose-500 mt-1">{errors.phoneNumber.message}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Teacher Type Selector (Guru Mata Pelajaran vs Guru BK) */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Alamat Email (Username Akun) <span className="text-rose-500">*</span>
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              Jenis Guru (<code className="text-[11px] font-mono text-blue-600">teacher_type</code>) <span className="text-rose-500">*</span>
             </label>
-            <input
-              type="email"
-              {...register("email")}
-              placeholder="Contoh: guru.bk@smadap.sch.id"
-              className={`w-full px-3.5 py-2.5 rounded-xl border text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 transition ${
-                errors.email
-                  ? "border-rose-300 focus:ring-rose-200"
-                  : "border-slate-200 focus:ring-blue-500/20 focus:border-blue-600"
-              }`}
-            />
-            {errors.email && <p className="text-[11px] text-rose-500 mt-1">{errors.email.message}</p>}
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={() => handleTeacherTypeChange("teacher")}
+                className={`p-3 rounded-2xl border text-left transition flex items-start gap-2.5 cursor-pointer ${
+                  selectedTeacherType === "teacher"
+                    ? "border-blue-600 bg-blue-50/70 ring-2 ring-blue-500/20"
+                    : "border-slate-200 bg-white hover:bg-slate-50"
+                }`}
+              >
+                <div
+                  className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                    selectedTeacherType === "teacher"
+                      ? "bg-blue-600 text-white"
+                      : "bg-slate-100 text-slate-500"
+                  }`}
+                >
+                  <BookOpen className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-slate-900">Guru Mata Pelajaran</div>
+                  <div className="text-[10px] font-mono text-slate-500 mt-0.5">teacher_type: teacher</div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleTeacherTypeChange("counselor")}
+                className={`p-3 rounded-2xl border text-left transition flex items-start gap-2.5 cursor-pointer ${
+                  selectedTeacherType === "counselor"
+                    ? "border-purple-600 bg-purple-50/70 ring-2 ring-purple-500/20"
+                    : "border-slate-200 bg-white hover:bg-slate-50"
+                }`}
+              >
+                <div
+                  className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                    selectedTeacherType === "counselor"
+                      ? "bg-purple-600 text-white"
+                      : "bg-slate-100 text-slate-500"
+                  }`}
+                >
+                  <Headset className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-slate-900">Guru BK (Konselor)</div>
+                  <div className="text-[10px] font-mono text-purple-600 mt-0.5">teacher_type: counselor</div>
+                </div>
+              </button>
+            </div>
+            {selectedTeacherType === "counselor" && (
+              <p className="mt-1.5 text-[11px] text-purple-700 bg-purple-50 border border-purple-200/70 px-3 py-1.5 rounded-xl">
+                Guru dengan <strong>teacher_type = counselor</strong> akan otomatis ditampilkan pada daftar kontak publik <strong>&quot;Lapor BK&quot;</strong> di halaman utama.
+              </p>
+            )}
           </div>
 
           {/* Specialization / Duty Role */}
@@ -178,24 +283,37 @@ export default function TeacherModal({
                 Tugas / Peran Khusus <span className="text-rose-500">*</span>
               </label>
               <select
-                {...register("specialization")}
+                {...register("specialization", {
+                  onChange: (e) => {
+                    const val = e.target.value as TeacherSpecialization;
+                    if (val === "guru_bk") {
+                      setValue("teacher_type", "counselor", { shouldValidate: true });
+                    } else if (selectedTeacherType === "counselor") {
+                      setValue("teacher_type", "teacher", { shouldValidate: true });
+                    }
+                  },
+                })}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
               >
+                <option value="guru_mapel">Guru Mata Pelajaran</option>
                 <option value="guru_piket">Guru Piket (Input Pelanggaran Harian)</option>
                 <option value="wali_kelas">Wali Kelas (Pemantauan Kelas Binaan)</option>
                 <option value="guru_bk">Guru BK (Bimbingan Konseling & Pemutihan)</option>
-                <option value="guru_mapel">Guru Mata Pelajaran</option>
               </select>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Kelas Binaan (Khusus Wali Kelas)
+                {selectedTeacherType === "counselor" ? "Bidang / Kelas Konseling" : "Kelas Binaan (Wali Kelas)"}
               </label>
               <input
                 type="text"
                 {...register("assignedClass")}
-                placeholder="Contoh: X MIPA 1 atau XI RPL 2"
+                placeholder={
+                  selectedTeacherType === "counselor"
+                    ? "Contoh: Konseling Kelas XI"
+                    : "Contoh: X MIPA 1 atau XI RPL 2"
+                }
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
               />
             </div>

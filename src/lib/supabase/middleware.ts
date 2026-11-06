@@ -1,6 +1,6 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
-import { AUTH_COOKIE_NAME, ROLE_REDIRECT_MAP } from "@/lib/constants/auth";
+import { AUTH_COOKIE_NAME, ROLE_REDIRECT_MAP, getRoleRedirectPath, normalizeRole } from "@/lib/constants/auth";
 import { AuthSession, UserRole } from "@/types/auth";
 
 export async function updateSession(request: NextRequest) {
@@ -20,7 +20,13 @@ export async function updateSession(request: NextRequest) {
     try {
       const decoded = JSON.parse(decodeURIComponent(sessionCookie));
       if (decoded && decoded.user && decoded.user.role) {
-        currentSession = decoded as AuthSession;
+        currentSession = {
+          ...decoded,
+          user: {
+            ...decoded.user,
+            role: normalizeRole(decoded.user.role),
+          },
+        } as AuthSession;
       }
     } catch {
       // Invalid cookie format
@@ -60,7 +66,22 @@ export async function updateSession(request: NextRequest) {
 
     const { data: { user } } = await supabase.auth.getUser();
     if (user && !currentSession) {
-      const role = (user.user_metadata?.role || "siswa") as UserRole;
+      let rawRole = user.user_metadata?.role;
+      if (!rawRole) {
+        try {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("role, full_name")
+            .eq("id", user.id)
+            .maybeSingle();
+          if (profile?.role) {
+            rawRole = profile.role;
+          }
+        } catch {
+          // Fallback to user metadata
+        }
+      }
+      const role = normalizeRole(rawRole);
       currentSession = {
         user: {
           id: user.id,
@@ -83,7 +104,7 @@ export async function updateSession(request: NextRequest) {
 
   // 1. Authenticated user attempting to visit /login -> redirect to their designated dashboard
   if (isLoginPage && currentSession) {
-    const targetUrl = ROLE_REDIRECT_MAP[currentSession.user.role] || "/admin";
+    const targetUrl = getRoleRedirectPath(currentSession.user.role);
     return NextResponse.redirect(new URL(targetUrl, request.url));
   }
 
@@ -96,21 +117,24 @@ export async function updateSession(request: NextRequest) {
 
   // 3. Authenticated user attempting to access route outside their role permission
   if (currentSession && isProtected) {
-    const role = currentSession.user.role;
+    const role = normalizeRole(currentSession.user.role);
 
     if (isProtectedAdmin && role !== "admin") {
       // Non-admin trying to access /admin -> bounce to their own role dashboard
-      return NextResponse.redirect(new URL(ROLE_REDIRECT_MAP[role], request.url));
+      const targetUrl = getRoleRedirectPath(role);
+      return NextResponse.redirect(new URL(targetUrl, request.url));
     }
 
     if (isProtectedGuru && role !== "guru" && role !== "admin") {
       // Siswa trying to access guru portal -> bounce to siswa dashboard
-      return NextResponse.redirect(new URL(ROLE_REDIRECT_MAP[role], request.url));
+      const targetUrl = getRoleRedirectPath(role);
+      return NextResponse.redirect(new URL(targetUrl, request.url));
     }
 
     if (isProtectedSiswa && role !== "siswa" && role !== "admin") {
       // Guru accessing student-only portal -> bounce to guru dashboard
-      return NextResponse.redirect(new URL(ROLE_REDIRECT_MAP[role], request.url));
+      const targetUrl = getRoleRedirectPath(role);
+      return NextResponse.redirect(new URL(targetUrl, request.url));
     }
   }
 

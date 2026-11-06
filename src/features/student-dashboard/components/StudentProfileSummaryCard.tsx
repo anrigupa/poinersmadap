@@ -35,25 +35,25 @@ export default function StudentProfileSummaryCard({
   const isSp2 = points.currentLevel === "SP2";
 
   const levelBadgeClass = isAman
-    ? "bg-emerald-500/20 text-emerald-200 border-emerald-400/30"
+    ? "bg-emerald-900/60 text-emerald-200 border-emerald-400/40"
     : isSp1
-    ? "bg-amber-500/20 text-amber-200 border-amber-400/30"
+    ? "bg-amber-900/60 text-amber-200 border-amber-400/40"
     : isSp2
-    ? "bg-orange-500/20 text-orange-200 border-orange-400/30"
-    : "bg-rose-500/20 text-rose-200 border-rose-400/30";
+    ? "bg-orange-900/60 text-orange-200 border-orange-400/40"
+    : "bg-rose-900/60 text-rose-200 border-rose-400/40";
 
   return (
     <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-indigo-950 text-white rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden border border-slate-800">
       <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         {/* Left: Avatar & Profile Details */}
         <div className="flex items-start sm:items-center gap-4 sm:gap-5">
-          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-sky-400 text-white font-black text-xl sm:text-2xl flex items-center justify-center shrink-0 shadow-lg shadow-blue-500/25 border border-white/20">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-sky-400 text-white font-black text-xl sm:text-2xl flex items-center justify-center shrink-0 shadow-lg shadow-blue-500/25 border border-white/20 select-none">
             {initials}
           </div>
 
           <div className="space-y-1.5">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider bg-white/10 px-3 py-0.5 rounded-full text-blue-200 border border-white/10">
+              <span className="text-[11px] font-bold uppercase tracking-wider bg-white/15 px-3 py-0.5 rounded-full text-blue-100 border border-white/20">
                 Kartu Disiplin Siswa
               </span>
               <span
@@ -68,27 +68,27 @@ export default function StudentProfileSummaryCard({
               {profile.fullName}
             </h1>
 
-            <div className="flex flex-wrap items-center gap-y-1 gap-x-3 text-xs text-slate-300">
+            <div className="flex flex-wrap items-center gap-y-1 gap-x-3 text-xs text-slate-200 font-medium">
               <span className="font-mono">NISN: {profile.nisn}</span>
-              <span>•</span>
+              <span className="text-slate-400">•</span>
               <span className="font-mono">NIS: {profile.nis}</span>
-              <span>•</span>
+              <span className="text-slate-400">•</span>
               <span className="font-semibold text-blue-300">
-                {profile.className} ({profile.major})
+                {profile.className}
               </span>
-              <span>•</span>
+              <span className="text-slate-400">•</span>
               <span>{profile.gender === "L" ? "Laki-laki" : "Perempuan"}</span>
             </div>
 
             {profile.parentName && (
-              <div className="text-[11px] text-slate-400 flex items-center gap-1.5 pt-0.5">
-                <User className="w-3 h-3 text-slate-500" />
+              <div className="text-xs text-slate-300 flex items-center gap-1.5 pt-0.5">
+                <User className="w-3.5 h-3.5 text-blue-300" />
                 <span>Wali: {profile.parentName}</span>
                 {profile.parentPhone && (
                   <>
-                    <span>•</span>
-                    <Phone className="w-3 h-3 text-slate-500" />
-                    <span>{profile.parentPhone}</span>
+                    <span className="text-slate-400">•</span>
+                    <Phone className="w-3.5 h-3.5 text-blue-300" />
+                    <span className="font-mono">{profile.parentPhone}</span>
                   </>
                 )}
               </div>
@@ -96,31 +96,37 @@ export default function StudentProfileSummaryCard({
           </div>
         </div>
 
-        {/* Right: Key Point Scorecards */}
+        {/* Right: Key Point Scorecards (Value -> Label -> Description) */}
         <div className="grid grid-cols-2 gap-3 sm:gap-4 shrink-0">
           {/* Total Violation Points */}
-          <div className="bg-white/10 backdrop-blur-md border border-white/15 p-4 rounded-2xl text-center min-w-[120px] sm:min-w-[140px]">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-rose-300 block mb-0.5">
-              Poin Pelanggaran
-            </span>
-            <div className="text-3xl sm:text-4xl font-black text-rose-400 tracking-tight">
+          <div className="bg-slate-900/90 border border-rose-500/30 p-4 rounded-2xl text-center min-w-[130px] sm:min-w-[150px] shadow-md flex flex-col justify-center">
+            {/* 1. Value */}
+            <div className="text-3xl sm:text-4xl font-black text-rose-400 font-mono tracking-tight">
               {points.totalViolationPoints}
             </div>
-            <span className="text-[10px] text-slate-400 block mt-0.5">
-              {points.currentLevel}
+            {/* 2. Label */}
+            <span className="text-xs font-bold uppercase tracking-wider text-rose-200 mt-1.5 block">
+              Poin Pelanggaran
+            </span>
+            {/* 3. Description */}
+            <span className="text-[11px] text-slate-300 font-medium block mt-0.5">
+              Tingkat: {points.currentLevel}
             </span>
           </div>
 
           {/* Merit Points */}
-          <div className="bg-white/10 backdrop-blur-md border border-white/15 p-4 rounded-2xl text-center min-w-[120px] sm:min-w-[140px]">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300 block mb-0.5">
-              Poin Prestasi
-            </span>
-            <div className="text-3xl sm:text-4xl font-black text-emerald-400 tracking-tight">
+          <div className="bg-slate-900/90 border border-emerald-500/30 p-4 rounded-2xl text-center min-w-[130px] sm:min-w-[150px] shadow-md flex flex-col justify-center">
+            {/* 1. Value */}
+            <div className="text-3xl sm:text-4xl font-black text-emerald-400 font-mono tracking-tight">
               +{points.totalMeritPoints}
             </div>
-            <span className="text-[10px] text-slate-400 block mt-0.5">
-              Penghargaan
+            {/* 2. Label */}
+            <span className="text-xs font-bold uppercase tracking-wider text-emerald-200 mt-1.5 block">
+              Poin Prestasi
+            </span>
+            {/* 3. Description */}
+            <span className="text-[11px] text-slate-300 font-medium block mt-0.5">
+              Poin Penghargaan
             </span>
           </div>
         </div>

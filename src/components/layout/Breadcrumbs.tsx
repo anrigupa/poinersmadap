@@ -14,13 +14,12 @@ const ROUTE_LABELS: Record<string, string> = {
   teachers: "Data Guru",
   rules: "Buku Saku Tata Tertib",
   sanctions: "Surat Panggilan (SP)",
-  "audit-logs": "Log Audit",
   settings: "Pengaturan",
-  analytics: "Analitik",
   report: "Input Pelanggaran",
   classes: "Kelas Binaan",
   counseling: "Bimbingan Konseling",
-  history: "Riwayat Pelanggaran",
+  history: "Riwayat Laporan",
+  profile: "Profil Pengguna",
   merits: "Prestasi & Pemutihan",
 };
 

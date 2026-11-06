@@ -28,7 +28,7 @@ export default function RecentSubmissionsTable({
           Belum ada catatan pelanggaran pribadi
         </h4>
         <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-          Anda belum menginput laporan pelanggaran siswa. Gunakan tombol &quot;Catat Pelanggaran (Quick Action)&quot; untuk membuat laporan baru.
+          Anda belum menginput laporan pelanggaran siswa. Gunakan tombol &quot;Catat Pelanggaran&quot; atau &quot;Input Cepat&quot; untuk membuat laporan baru.
         </p>
       </div>
     );
@@ -39,7 +39,7 @@ export default function RecentSubmissionsTable({
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-slate-50/70 border-b border-slate-100 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-700 uppercase tracking-wider">
               <th className="py-3.5 px-4 sm:px-6">Siswa & Kelas</th>
               <th className="py-3.5 px-4">Aturan & Pelanggaran</th>
               <th className="py-3.5 px-4">Poin</th>
@@ -143,17 +143,17 @@ export default function RecentSubmissionsTable({
                   {/* Status */}
                   <td className="py-3.5 px-4 sm:px-6 text-right">
                     {record.status === "confirmed" ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                        <CheckCircle className="w-3 h-3 text-emerald-600" />
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-900 border border-emerald-300">
+                        <CheckCircle className="w-3 h-3 text-emerald-700" />
                         Dikonfirmasi
                       </span>
                     ) : record.status === "appealed" ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                        <ShieldAlert className="w-3 h-3 text-amber-600" />
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-950 border border-amber-300">
+                        <ShieldAlert className="w-3 h-3 text-amber-700" />
                         Banding
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-800 border border-slate-300">
                         Dibatalkan
                       </span>
                     )}

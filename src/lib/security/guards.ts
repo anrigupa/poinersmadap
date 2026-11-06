@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentSession } from "@/features/auth/actions/authActions";
-import { AuthSession, UserRole, UserProfile } from "@/types/auth";
-import { ROLE_REDIRECT_MAP } from "@/lib/constants/auth";
+import { AuthSession, UserRole, UserProfile, normalizeRole } from "@/types/auth";
+import { ROLE_REDIRECT_MAP, getRoleRedirectPath } from "@/lib/constants/auth";
 
 export class SecurityError extends Error {
   statusCode: number;
@@ -34,15 +34,22 @@ export async function requireRole(
   currentPath?: string
 ): Promise<AuthSession> {
   const session = await requireAuth(currentPath);
-  const userRole = session.user.role;
+  const userRole = normalizeRole(session.user.role);
+  const normalizedAllowed = allowedRoles.map((r) => normalizeRole(r));
 
-  if (!allowedRoles.includes(userRole)) {
+  if (!normalizedAllowed.includes(userRole)) {
     // Redirect unauthorized user to their proper portal
-    const properTarget = ROLE_REDIRECT_MAP[userRole] || "/login";
+    const properTarget = getRoleRedirectPath(userRole);
     redirect(properTarget);
   }
 
-  return session;
+  return {
+    ...session,
+    user: {
+      ...session.user,
+      role: userRole,
+    },
+  };
 }
 
 /**
@@ -63,7 +70,10 @@ export function assertRole(
   actionDescription = "tindakan ini"
 ): asserts session is AuthSession {
   assertAuthenticated(session);
-  if (!allowedRoles.includes(session.user.role)) {
+  const userRole = normalizeRole(session.user.role);
+  const normalizedAllowed = allowedRoles.map((r) => normalizeRole(r));
+
+  if (!normalizedAllowed.includes(userRole)) {
     throw new SecurityError(
       `Akses dibatasi: Peran '${session.user.role}' tidak memiliki izin untuk ${actionDescription}.`,
       403

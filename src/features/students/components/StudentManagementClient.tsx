@@ -34,33 +34,13 @@ import StudentModal from "@/features/students/components/StudentModal";
 import ResetStudentPasswordModal from "@/features/students/components/ResetStudentPasswordModal";
 import DeleteStudentDialog from "@/features/students/components/DeleteStudentDialog";
 import StudentPaginationControls from "@/features/students/components/StudentPaginationControls";
+import { ClassSelector } from "@/components/ui";
+import { CLASS_GROUPS } from "@/lib/constants/classes";
 
 interface StudentManagementClientProps {
   initialStudents: PaginatedResult<StudentItem>;
   initialSummary?: StudentSummaryStats;
 }
-
-const CLASS_OPTIONS = [
-  "all",
-  "X MIPA 1",
-  "X MIPA 2",
-  "X IPS 1",
-  "X IPS 2",
-  "X RPL 1",
-  "XI MIPA 1",
-  "XI MIPA 2",
-  "XI IPS 1",
-  "XI IPS 2",
-  "XI RPL 1",
-  "XI Bahasa 1",
-  "XII MIPA 1",
-  "XII MIPA 2",
-  "XII MIPA 3",
-  "XII IPS 1",
-  "XII IPS 2",
-];
-
-const MAJOR_OPTIONS = ["all", "MIPA", "IPS", "Bahasa", "RPL", "TKJ"];
 
 export default function StudentManagementClient({
   initialStudents,
@@ -79,7 +59,6 @@ export default function StudentManagementClient({
   // Filters & Search
   const [search, setSearch] = useState("");
   const [selectedClass, setSelectedClass] = useState("all");
-  const [selectedMajor, setSelectedMajor] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [selectedPointCat, setSelectedPointCat] = useState<
     "all" | "safe" | "warning" | "danger"
@@ -118,7 +97,6 @@ export default function StudentManagementClient({
         const res = await getStudentsAction({
           search,
           className: selectedClass,
-          major: selectedMajor,
           status: selectedStatus,
           pointCategory: selectedPointCat,
           sortBy,
@@ -136,7 +114,6 @@ export default function StudentManagementClient({
     [
       search,
       selectedClass,
-      selectedMajor,
       selectedStatus,
       selectedPointCat,
       sortBy,
@@ -156,7 +133,6 @@ export default function StudentManagementClient({
   }, [
     search,
     selectedClass,
-    selectedMajor,
     selectedStatus,
     selectedPointCat,
     sortBy,
@@ -253,7 +229,7 @@ export default function StudentManagementClient({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -266,7 +242,7 @@ export default function StudentManagementClient({
             </h1>
           </div>
           <p className="text-xs text-slate-500 mt-1 max-w-2xl">
-            Kelola data siswa, NISN, rombongan belajar kelas, jurusan, pemantauan poin
+            Kelola data siswa, NISN, rombongan belajar kelas, pemantauan poin
             pelanggaran dan poin prestasi, serta akun login Supabase Auth.
           </p>
         </div>
@@ -377,7 +353,7 @@ export default function StudentManagementClient({
 
       {/* Filter and Search Bar */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {/* Search Box */}
           <div className="lg:col-span-2 relative">
             <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
@@ -398,38 +374,15 @@ export default function StudentManagementClient({
             )}
           </div>
 
-          {/* Filter Kelas */}
+          {/* Filter Kelas (Kurikulum Merdeka X.A - XII.I via ClassSelector) */}
           <div>
-            <select
+            <ClassSelector
               value={selectedClass}
-              onChange={(e) => setSelectedClass(e.target.value)}
-              aria-label="Filter berdasarkan Kelas"
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-700 focus:border-blue-500 focus:outline-hidden transition"
-            >
-              <option value="all">Semua Kelas</option>
-              {CLASS_OPTIONS.filter((c) => c !== "all").map((cls) => (
-                <option key={cls} value={cls}>
-                  {cls}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Filter Jurusan */}
-          <div>
-            <select
-              value={selectedMajor}
-              onChange={(e) => setSelectedMajor(e.target.value)}
-              aria-label="Filter berdasarkan Jurusan"
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-700 focus:border-blue-500 focus:outline-hidden transition"
-            >
-              <option value="all">Semua Jurusan</option>
-              {MAJOR_OPTIONS.filter((m) => m !== "all").map((m) => (
-                <option key={m} value={m}>
-                  Jurusan {m}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setSelectedClass(val)}
+              allowAll
+              allLabel="Semua Kelas"
+              placeholder="Filter Kelas..."
+            />
           </div>
 
           {/* Filter Kategori Poin */}

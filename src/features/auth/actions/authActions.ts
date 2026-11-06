@@ -3,7 +3,13 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { loginSchema, LoginFormData } from "@/features/auth/schemas/loginSchema";
-import { AUTH_COOKIE_NAME, DEMO_ACCOUNTS, ROLE_REDIRECT_MAP } from "@/lib/constants/auth";
+import {
+  AUTH_COOKIE_NAME,
+  DEMO_ACCOUNTS,
+  ROLE_REDIRECT_MAP,
+  getRoleRedirectPath,
+  normalizeRole,
+} from "@/lib/constants/auth";
 import { AuthActionResult, AuthSession, UserProfile, UserRole } from "@/types/auth";
 import { createClient } from "@/lib/supabase/server";
 
@@ -46,14 +52,51 @@ export async function signInAction(rawInput: unknown): Promise<AuthActionResult>
       });
 
       if (!error && data?.user) {
-        // Fetch role from profile table or user metadata
-        const profileRole = (data.user.user_metadata?.role as UserRole) || role;
+        // Query profiles table to ensure database consistency, fallback to user_metadata or form role
+        let detectedRole = data.user.user_metadata?.role;
+        try {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("role, full_name")
+            .eq("id", data.user.id)
+            .maybeSingle();
+          if (profile?.role) {
+            detectedRole = profile.role;
+          }
+        } catch {
+          // Fallback to user_metadata or role from login form
+        }
+
+        const normalizedUserRole = normalizeRole(detectedRole || role);
+
         authenticatedUser = {
           id: data.user.id,
           email: data.user.email || "",
           fullName: data.user.user_metadata?.full_name || data.user.email || "Pengguna",
-          role: profileRole,
+          role: normalizedUserRole,
         };
+
+        if (normalizedUserRole === "guru") {
+          try {
+            const { data: teacherRecord } = await supabase
+              .from("teachers")
+              .select("id, nip, teacher_type, specialization, assigned_class, phone_number")
+              .eq("profile_id", data.user.id)
+              .maybeSingle();
+
+            if (teacherRecord) {
+              authenticatedUser.teacherId = teacherRecord.id;
+              authenticatedUser.nip = teacherRecord.nip || undefined;
+              authenticatedUser.teacherType = (teacherRecord.teacher_type as any) || "teacher";
+              authenticatedUser.specialization = teacherRecord.specialization || undefined;
+              authenticatedUser.assignedClass = teacherRecord.assigned_class || undefined;
+              authenticatedUser.className = teacherRecord.assigned_class || undefined;
+              authenticatedUser.phoneNumber = teacherRecord.phone_number || undefined;
+            }
+          } catch {
+            // Optional teacher metadata enrichment fallback
+          }
+        }
       }
     } catch {
       // Fallback to local authentication resolver
@@ -102,7 +145,7 @@ export async function signInAction(rawInput: unknown): Promise<AuthActionResult>
     maxAge: 7 * 24 * 60 * 60,
   });
 
-  const targetPath = ROLE_REDIRECT_MAP[authenticatedUser.role] || "/login";
+  const targetPath = getRoleRedirectPath(authenticatedUser.role);
 
   return {
     success: true,
@@ -143,7 +186,13 @@ export async function getCurrentSession(): Promise<AuthSession | null> {
   try {
     const parsed = JSON.parse(decodeURIComponent(sessionCookie));
     if (parsed?.user?.role) {
-      return parsed as AuthSession;
+      return {
+        ...parsed,
+        user: {
+          ...parsed.user,
+          role: normalizeRole(parsed.user.role),
+        },
+      } as AuthSession;
     }
   } catch {
     return null;

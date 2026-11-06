@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { X, UserPlus, Save, Key, ShieldCheck, Sparkles, AlertCircle } from "lucide-react";
-import { StudentItem, StudentMajor, StudentGender } from "@/features/students/types";
+import { StudentItem, StudentGender } from "@/features/students/types";
 import { studentFormSchema, StudentFormData } from "@/features/students/schemas";
+import { ALL_AVAILABLE_CLASSES } from "@/lib/constants/classes";
+import { ClassSelector } from "@/components/ui";
 
 interface StudentModalProps {
   isOpen: boolean;
@@ -13,34 +15,6 @@ interface StudentModalProps {
   onSubmit: (data: StudentFormData) => Promise<{ success: boolean; message: string }>;
   initialData?: StudentItem | null;
 }
-
-const COMMON_CLASSES = [
-  "X MIPA 1",
-  "X MIPA 2",
-  "X IPS 1",
-  "X IPS 2",
-  "X RPL 1",
-  "XI MIPA 1",
-  "XI MIPA 2",
-  "XI IPS 1",
-  "XI IPS 2",
-  "XI RPL 1",
-  "XI Bahasa 1",
-  "XII MIPA 1",
-  "XII MIPA 2",
-  "XII MIPA 3",
-  "XII IPS 1",
-  "XII IPS 2",
-];
-
-const MAJORS: { value: StudentMajor; label: string }[] = [
-  { value: "MIPA", label: "MIPA (Matematika & IPA)" },
-  { value: "IPS", label: "IPS (Ilmu Pengetahuan Sosial)" },
-  { value: "Bahasa", label: "Bahasa & Budaya" },
-  { value: "RPL", label: "Rekayasa Perangkat Lunak" },
-  { value: "TKJ", label: "Teknik Komputer Jaringan" },
-  { value: "Umum", label: "Umum" },
-];
 
 export default function StudentModal({
   isOpen,
@@ -67,8 +41,7 @@ export default function StudentModal({
       nis: "",
       fullName: "",
       email: "",
-      className: "X MIPA 1",
-      major: "MIPA",
+      className: "X.A",
       gender: "L",
       parentName: "",
       parentPhone: "",
@@ -77,7 +50,6 @@ export default function StudentModal({
   });
 
   const nisValue = watch("nis");
-  const classValue = watch("className");
 
   // Reset or initialize values when modal opens
   useEffect(() => {
@@ -89,8 +61,9 @@ export default function StudentModal({
           nis: initialData.nis,
           fullName: initialData.fullName,
           email: initialData.email,
-          className: initialData.className,
-          major: initialData.major,
+          className: (ALL_AVAILABLE_CLASSES.includes(initialData.className as any)
+            ? initialData.className
+            : "X.A") as any,
           gender: initialData.gender,
           parentName: initialData.parentName || "",
           parentPhone: initialData.parentPhone || "",
@@ -104,8 +77,7 @@ export default function StudentModal({
           nis: randomNis,
           fullName: "",
           email: `siswa.${randomNis}@smadap.sch.id`,
-          className: "X MIPA 1",
-          major: "MIPA",
+          className: "X.A",
           gender: "L",
           parentName: "",
           parentPhone: "",
@@ -114,22 +86,6 @@ export default function StudentModal({
       }
     }
   }, [isOpen, initialData, reset]);
-
-  // Suggest major when class changes
-  const handleClassChange = (selectedClass: string) => {
-    setValue("className", selectedClass);
-    if (selectedClass.includes("MIPA") || selectedClass.includes("IPA")) {
-      setValue("major", "MIPA");
-    } else if (selectedClass.includes("IPS")) {
-      setValue("major", "IPS");
-    } else if (selectedClass.includes("Bahasa")) {
-      setValue("major", "Bahasa");
-    } else if (selectedClass.includes("RPL")) {
-      setValue("major", "RPL");
-    } else if (selectedClass.includes("TKJ")) {
-      setValue("major", "TKJ");
-    }
-  };
 
   const handleGeneratePassword = () => {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
@@ -281,50 +237,29 @@ export default function StudentModal({
             )}
           </div>
 
-          {/* Kelas & Jurusan */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Kelas <span className="text-red-500">*</span>
-              </label>
-              <select
-                {...register("className")}
-                onChange={(e) => handleClassChange(e.target.value)}
-                className={`w-full px-3 py-2 text-xs rounded-xl border bg-white ${
-                  errors.className ? "border-red-400" : "border-slate-200 focus:border-blue-500"
-                } focus:outline-hidden transition`}
-              >
-                {COMMON_CLASSES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-              {errors.className && (
-                <p className="text-[11px] text-red-500 mt-1">{errors.className.message}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Jurusan <span className="text-red-500">*</span>
-              </label>
-              <select
-                {...register("major")}
-                className={`w-full px-3 py-2 text-xs rounded-xl border bg-white ${
-                  errors.major ? "border-red-400" : "border-slate-200 focus:border-blue-500"
-                } focus:outline-hidden transition`}
-              >
-                {MAJORS.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label}
-                  </option>
-                ))}
-              </select>
-              {errors.major && (
-                <p className="text-[11px] text-red-500 mt-1">{errors.major.message}</p>
-              )}
-            </div>
+          {/* Kelas (Kurikulum Merdeka ClassSelector) */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Rombongan Belajar / Kelas <span className="text-red-500">*</span>
+            </label>
+            <ClassSelector
+              value={watch("className")}
+              onChange={(val) =>
+                setValue("className", val as any, {
+                  shouldValidate: true,
+                  shouldDirty: true,
+                })
+              }
+              legacyValue={isEditing ? initialData?.className : null}
+              error={errors.className?.message}
+            />
+            {errors.className ? (
+              <p className="text-[11px] text-red-500 mt-1">{errors.className.message}</p>
+            ) : (
+              <p className="text-[11px] text-slate-400 mt-1">
+                Pilih kelas resmi berdasarkan struktur Kurikulum Merdeka SMAN 2 Pangkep.
+              </p>
+            )}
           </div>
 
           {/* Gender & Orang Tua */}

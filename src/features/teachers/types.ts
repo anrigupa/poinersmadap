@@ -1,3 +1,5 @@
+export type TeacherType = "teacher" | "counselor";
+
 export type TeacherSpecialization =
   | "guru_piket"
   | "wali_kelas"
@@ -10,6 +12,7 @@ export interface TeacherItem {
   nip: string; // Nomor Induk Pegawai
   fullName: string;
   email: string;
+  teacher_type: TeacherType;
   specialization: TeacherSpecialization;
   assignedClass?: string | null;
   phoneNumber?: string | null;
@@ -19,8 +22,21 @@ export interface TeacherItem {
   updatedAt?: string;
 }
 
+/**
+ * Privacy-scoped public DTO for the "Lapor BK" Counselor Contact list.
+ * Excludes internal identifiers such as `profileId`, `nip`, and `email`.
+ */
+export interface PublicCounselorContact {
+  id: string;
+  fullName: string;
+  roleTitle: "Guru BK";
+  assignedClass: string | null;
+  phoneNumber: string | null;
+}
+
 export interface TeacherFilter {
   search?: string;
+  teacher_type?: TeacherType | "all";
   specialization?: string;
   page?: number;
   pageSize?: number;

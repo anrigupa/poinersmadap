@@ -28,49 +28,49 @@ export default function ViolationTrendChart({ data }: ViolationTrendChartProps) 
   const isDeclining = diff < 0; // Fewer violation points is good!
 
   return (
-    <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col justify-between h-full space-y-4">
+    <div className="bg-white p-6 rounded-3xl border border-slate-200/90 shadow-sm flex flex-col justify-between h-full space-y-4">
       {/* Header */}
       <div>
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <span className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600">
+            <span className="p-1.5 rounded-lg bg-blue-50 text-blue-700 border border-blue-200">
               <Activity className="w-4 h-4" />
             </span>
             <div>
-              <h3 className="text-sm font-bold text-slate-900 tracking-tight">
+              <h3 className="text-base font-semibold text-slate-800 tracking-tight">
                 Tren Akumulasi Pelanggaran per Bulan
               </h3>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-500 mt-1">
                 Semester Ganjil T.A 2026/2027 (Juli - Desember)
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100 text-slate-600 text-xs font-semibold">
-            <Calendar className="w-3.5 h-3.5 text-slate-400" />
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100 text-slate-700 border border-slate-200 text-xs font-semibold">
+            <Calendar className="w-3.5 h-3.5 text-slate-500" />
             <span>6 Bulan Terakhir</span>
           </div>
         </div>
 
         {/* Dynamic Tooltip Info Box */}
-        <div className="mt-3 p-3 rounded-2xl bg-slate-50 border border-slate-200/70 min-h-[44px] flex items-center justify-between text-xs transition">
+        <div className="mt-3 p-3 rounded-2xl bg-slate-50 border border-slate-200 min-h-[44px] flex items-center justify-between text-xs transition">
           {activeItem ? (
             <>
               <div className="flex items-center gap-2">
                 <span className="font-bold text-slate-800">
                   Bulan {activeItem.month}:
                 </span>
-                <span className="font-extrabold text-rose-600">
+                <span className="font-extrabold text-rose-700">
                   +{activeItem.points} Poin Pelanggaran
                 </span>
               </div>
-              <span className="text-slate-500 font-medium text-[11px]">
+              <span className="text-slate-600 font-medium text-[11px]">
                 {activeItem.incidentCount} Insiden tercatat
               </span>
             </>
           ) : (
-            <div className="flex items-center gap-1.5 text-slate-400 text-[11px]">
-              <Info className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+            <div className="flex items-center gap-1.5 text-slate-500 text-xs">
+              <Info className="w-3.5 h-3.5 shrink-0 text-blue-600" />
               <span>
                 Arahkan kursor atau sentuh batang grafik untuk melihat rincian poin bulanan
               </span>
@@ -127,10 +127,10 @@ export default function ViolationTrendChart({ data }: ViolationTrendChartProps) 
                 <span
                   className={`text-[11px] font-semibold mt-2 transition ${
                     isCurrentMonth
-                      ? "text-blue-700 font-bold"
+                      ? "text-blue-800 font-bold"
                       : isHovered
-                      ? "text-slate-900"
-                      : "text-slate-400"
+                      ? "text-slate-900 font-bold"
+                      : "text-slate-600"
                   }`}
                 >
                   {item.month}

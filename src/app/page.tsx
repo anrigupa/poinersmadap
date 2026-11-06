@@ -1,14 +1,71 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowUpRight, Shield, Globe2, Sparkles, TrendingUp } from "lucide-react";
+import { ArrowUpRight, Shield, Globe2, Sparkles, TrendingUp, ShieldCheck } from "lucide-react";
 import ShieldCenterpiece from "@/components/ShieldCenterpiece";
-import Padlock3DIcon from "@/components/Padlock3DIcon";
 import QuickModals from "@/components/QuickModals";
+import { getSiswaTertibStatsAction } from "@/features/students/actions";
+import { SiswaTertibStats } from "@/features/students/types";
+import { createClient } from "@/lib/supabase/client";
 
 export default function LandingPage() {
-  const [activeModal, setActiveModal] = useState<"cek-poin" | "buku-saku" | "login" | null>(null);
+  const [activeModal, setActiveModal] = useState<"cek-poin" | "buku-saku" | "lapor-bk" | "top-pelanggaran" | null>(null);
+  const [siswaTertibStats, setSiswaTertibStats] = useState<SiswaTertibStats>({
+    totalSiswaTertib: 0,
+    totalActiveStudents: 0,
+    percentage: 100,
+  });
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchStats = async () => {
+      try {
+        const stats = await getSiswaTertibStatsAction();
+        if (isMounted) {
+          setSiswaTertibStats(stats);
+          setIsLoadingStats(false);
+        }
+      } catch (err) {
+        console.warn("Gagal memuat statistik siswa tertib:", err);
+        if (isMounted) setIsLoadingStats(false);
+      }
+    };
+
+    fetchStats();
+
+    // Supabase Realtime Listener for live updates when violations/students change
+    const supabase = createClient();
+    const channel = supabase
+      .channel("landing-siswa-tertib-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "students" },
+        () => {
+          fetchStats();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "student_violations" },
+        () => {
+          fetchStats();
+        }
+      )
+      .subscribe();
+
+    // Periodic refetch fallback (e.g. every 30s) to keep stats fresh even in fallback mode
+    const interval = setInterval(fetchStats, 30000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   return (
     <main className="relative w-screen h-screen overflow-hidden bg-hero-radial select-none flex flex-col justify-between">
@@ -27,48 +84,23 @@ export default function LandingPage() {
         transition={{ delay: 1.15, duration: 0.75, ease: [0.22, 1, 0.36, 1] }}
         className="relative z-30 w-full max-w-[1440px] mx-auto px-6 sm:px-12 pt-6 flex items-center justify-between"
       >
-        {/* Logo Kiri (Bentuk siluet dinamis/perisai seperti referensi) */}
-        <button
-          onClick={() => setActiveModal("cek-poin")}
-          className="flex items-center gap-2.5 group text-left focus:outline-none"
-        >
-          <div className="w-9 h-9 rounded-full bg-white/80 backdrop-blur-md border border-white flex items-center justify-center shadow-sm group-hover:scale-105 transition">
+        {/* Logo Kiri (Branding POINER SMADAP - Non-clickable) */}
+        <div className="flex items-center gap-2.5 select-none">
+          <div className="w-9 h-9 rounded-full bg-white/80 backdrop-blur-md border border-white flex items-center justify-center shadow-sm">
             <Shield className="w-4 h-4 text-blue-600 fill-blue-600/20" />
           </div>
-          <span className="font-bold tracking-tight text-slate-800 text-sm hidden sm:inline">
-            SI<span className="text-blue-600">DISIPLIN</span>
+          <span className="font-bold tracking-tight text-slate-800 text-xs sm:text-sm">
+            POINER <span className="text-blue-600">SMADAP</span>
           </span>
-        </button>
+        </div>
 
-        {/* Menu Navigasi Tengah */}
-        <nav className="hidden lg:flex items-center gap-8 text-[11px] font-medium tracking-wide text-slate-600">
-          <button onClick={() => setActiveModal(null)} className="hover:text-slate-950 transition">
-            Beranda
-          </button>
-          <button onClick={() => setActiveModal("buku-saku")} className="hover:text-slate-950 transition">
-            Aturan &amp; Poin
-          </button>
-          <button onClick={() => setActiveModal("cek-poin")} className="hover:text-slate-950 transition">
-            Statistik Karakter
-          </button>
-          <button onClick={() => setActiveModal("cek-poin")} className="hover:text-slate-950 transition">
-            Cek Poin Siswa
-          </button>
-          <button onClick={() => setActiveModal("login")} className="hover:text-slate-950 transition">
-            Lapor BK
-          </button>
-          <button onClick={() => setActiveModal("login")} className="hover:text-slate-950 transition">
-            Kontak
-          </button>
-        </nav>
-
-        {/* Tombol Pill Kanan Atas */}
-        <button
-          onClick={() => setActiveModal("login")}
-          className="px-5 py-2 rounded-full bg-white/90 hover:bg-white text-slate-800 text-xs font-semibold shadow-sm border border-white transition hover:scale-105 active:scale-95"
+        {/* Tombol Masuk Kanan Atas (Direct navigation to /login) */}
+        <Link
+          href="/login"
+          className="px-5 py-2 rounded-full bg-white/90 hover:bg-white text-slate-800 text-xs font-semibold shadow-sm border border-white transition hover:scale-105 active:scale-95 flex items-center gap-1.5"
         >
-          Portal Login
-        </button>
+          <span>Masuk</span>
+        </Link>
       </motion.header>
 
       {/* =====================================================================
@@ -143,111 +175,104 @@ export default function LandingPage() {
           </div>
         </motion.div>
 
-        {/* AREA KANAN: Pill Avatar Sosial + 3 Kartu Bento Glassmorphism */}
+        {/* AREA KANAN: Statistik Siswa Tertib + 2 Kartu Bento Glassmorphism */}
         <div className="w-full lg:w-auto flex flex-col items-start lg:items-end gap-3.5">
           
-          {/* Floating Social Proof Pill (Di atas kartu kanan) */}
+          {/* Informational Statistics Card: Siswa Tertib (Tier 1 Hero Stat) */}
           <motion.div
             initial={{ y: 25, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 1.35, duration: 0.7, ease: "easeOut" }}
-            onClick={() => setActiveModal("cek-poin")}
-            className="cursor-pointer glass-pill px-3 py-1.5 rounded-full flex items-center gap-3 shadow-sm hover:bg-white/75 transition"
+            className="w-full sm:w-[484px] glass-card-light rounded-2xl sm:rounded-[24px] px-4 sm:px-5 py-3 border border-white/80 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 select-none"
           >
-            <div className="flex -space-x-2">
-              <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-blue-600 to-cyan-400 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white">
-                AP
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-white flex items-center justify-center shadow-xs shrink-0">
+                <ShieldCheck className="w-5 h-5 text-white" />
               </div>
-              <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-400 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white">
-                NS
-              </div>
-              <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-400 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white">
-                DA
-              </div>
-              <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-amber-500 to-orange-400 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white">
-                RK
+              <div className="flex items-center gap-2">
+                <span className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight leading-none">
+                  {isLoadingStats ? (
+                    <span className="inline-block w-8 h-5 bg-slate-200/80 rounded animate-pulse" />
+                  ) : (
+                    siswaTertibStats.totalSiswaTertib
+                  )}
+                </span>
+                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50/90 border border-emerald-200/70 px-2 py-0.5 rounded-full">
+                  Siswa Tertib
+                </span>
               </div>
             </div>
-            <div className="pr-2 text-xs text-slate-700">
-              <span className="text-slate-500">Siswa Tertib </span>
-              <strong className="font-bold text-slate-900">+850</strong>
-            </div>
+
+            <div className="hidden sm:block h-6 w-px bg-slate-300/60" />
+
+            <p className="text-[11px] text-slate-500 font-medium leading-tight max-w-[240px]">
+              Siswa dengan total poin pelanggaran di bawah 50 poin
+            </p>
           </motion.div>
 
-          {/* Barisan 3 Kartu Glassmorphism (Persis tata letak referensi) */}
-          <div className="w-full lg:w-auto grid grid-cols-1 sm:grid-cols-3 items-end gap-3.5">
-            
-            {/* KARTU 1 (Kiri - Tinted Glass dengan Ikon Gembok 3D Transparan) */}
+          {/* Barisan 2 Kartu Glassmorphism (Tier 2 Bento Grid: 2 Equal Columns) */}
+          <div className="w-full sm:w-[484px] grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            {/* KARTU 1 (Pantauan BK Terintegrasi) */}
             <motion.div
               initial={{ y: 45, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 1.4, duration: 0.75, ease: [0.22, 1, 0.36, 1] }}
-              onClick={() => setActiveModal("cek-poin")}
-              className="cursor-pointer glass-card-dark rounded-[26px] p-4 sm:w-[230px] h-[126px] flex items-center gap-3.5 hover:scale-[1.02] transition"
-            >
-              <Padlock3DIcon />
-              <div className="text-white">
-                <p className="text-xs font-semibold leading-snug">
-                  Rekap poin transparan &amp; terkunci aman
-                </p>
-                <span className="inline-block mt-1.5 text-[10px] text-blue-100/90">
-                  Verifikasi real-time →
-                </span>
-              </div>
-            </motion.div>
-
-            {/* KARTU 2 (Tengah - Lebih Tinggi, Frosted Putih, Badge Bulat Biru di Kanan Atas) */}
-            <motion.div
-              initial={{ y: 55, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 1.52, duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-              onClick={() => setActiveModal("login")}
-              className="cursor-pointer relative glass-card-frosted rounded-[28px] p-5 sm:w-[220px] h-[168px] flex flex-col justify-between hover:scale-[1.02] transition"
+              transition={{ delay: 1.45, duration: 0.75, ease: [0.22, 1, 0.36, 1] }}
+              onClick={() => setActiveModal("lapor-bk")}
+              className="cursor-pointer relative glass-card-frosted rounded-[26px] p-5 h-[164px] flex flex-col justify-between hover:scale-[1.02] active:scale-[0.99] transition duration-200"
             >
               {/* Badge Sfera Biru di Sudut Kanan Atas seperti di video */}
               <div className="absolute -top-3.5 right-4 w-10 h-10 rounded-full bg-gradient-to-tr from-blue-700 via-blue-500 to-cyan-300 shadow-md shadow-blue-500/30 flex items-center justify-center text-white border-2 border-white">
                 <Globe2 className="w-5 h-5" />
               </div>
 
-              <div className="mt-2">
-                <h3 className="text-sm font-bold text-slate-900 leading-tight">
+              <div className="mt-1">
+                <h3 className="text-sm font-bold text-slate-900 leading-snug">
                   Pantauan BK
                   <br />
                   Terintegrasi
                 </h3>
                 <p className="text-[11px] text-slate-500 mt-2 leading-relaxed">
-                  Notifikasi otomatis untuk wali kelas, guru BK, dan orang tua siswa.
+                  Layanan konseling &amp; pengaduan langsung bersama Guru BK sekolah.
                 </p>
               </div>
 
               <div className="flex items-center justify-between text-[10px] font-semibold text-blue-600 pt-1">
-                <span>Buka Dashboard</span>
+                <span>Hubungi Guru BK</span>
                 <Sparkles className="w-3.5 h-3.5" />
               </div>
             </motion.div>
 
-            {/* KARTU 3 (Kanan - Frosted Glass dengan Angka Persentase Besar 98%) */}
+            {/* KARTU 2 (Tingkat Kedisiplinan & Kepatuhan Tata Tertib) */}
             <motion.div
               initial={{ y: 45, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 1.64, duration: 0.75, ease: [0.22, 1, 0.36, 1] }}
-              onClick={() => setActiveModal("buku-saku")}
-              className="cursor-pointer glass-card-light rounded-[26px] p-4 sm:w-[215px] h-[126px] flex flex-col justify-between hover:scale-[1.02] transition"
+              transition={{ delay: 1.55, duration: 0.75, ease: [0.22, 1, 0.36, 1] }}
+              onClick={() => setActiveModal("top-pelanggaran")}
+              className="cursor-pointer relative glass-card-light rounded-[26px] p-5 h-[164px] flex flex-col justify-between hover:scale-[1.02] active:scale-[0.99] transition duration-200"
             >
               <div className="flex items-start justify-between">
                 <span className="text-4xl sm:text-[42px] font-light tracking-tight text-white drop-shadow-sm leading-none">
                   98<span className="text-2xl font-normal">%</span>
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-white/50 text-[10px] font-semibold text-slate-700 flex items-center gap-0.5">
+                <span className="px-2.5 py-1 rounded-full bg-white/50 text-[10px] font-semibold text-slate-700 flex items-center gap-1 shadow-2xs">
                   <TrendingUp className="w-3 h-3 text-blue-600" /> +12%
                 </span>
               </div>
 
-              <p className="text-[10px] text-slate-600 leading-snug">
-                Tingkat kedisiplinan &amp; kepatuhan tata tertib siswa semester aktif ini.
-              </p>
-            </motion.div>
+              <div>
+                <span className="text-xs font-bold text-slate-900 block mb-0.5">
+                  Kepatuhan Tata Tertib
+                </span>
+                <p className="text-[10px] text-slate-600 leading-snug">
+                  Lihat pelanggaran yang paling sering terjadi di sekolah
+                </p>
+              </div>
 
+              <div className="flex items-center justify-between text-[10px] font-semibold text-blue-700 pt-1 border-t border-white/40">
+                <span>5 Pelanggaran Terbanyak</span>
+                <ArrowUpRight className="w-3.5 h-3.5" />
+              </div>
+            </motion.div>
           </div>
         </div>
       </section>

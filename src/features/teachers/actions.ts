@@ -7,6 +7,7 @@ import { getCurrentSession } from "@/features/auth/actions/authActions";
 import {
   TeacherItem,
   TeacherFilter,
+  PublicCounselorContact,
   PaginatedResult,
   ActionResponse,
 } from "@/features/teachers/types";
@@ -35,6 +36,7 @@ let INITIAL_TEACHERS: TeacherItem[] = [
     nip: "198504122010012003",
     fullName: "Siti Rahmawati, S.Pd",
     email: "guru.bk@smadap.sch.id",
+    teacher_type: "counselor",
     specialization: "guru_bk",
     assignedClass: "Wali Kelas XI MIPA 2",
     phoneNumber: "081234567890",
@@ -47,6 +49,7 @@ let INITIAL_TEACHERS: TeacherItem[] = [
     nip: "197808202005011004",
     fullName: "Drs. Joko Susilo, M.Pd",
     email: "joko.susilo@smadap.sch.id",
+    teacher_type: "teacher",
     specialization: "guru_piket",
     assignedClass: "Wali Kelas XII IPS 1",
     phoneNumber: "081234567891",
@@ -59,6 +62,7 @@ let INITIAL_TEACHERS: TeacherItem[] = [
     nip: "199003152019032008",
     fullName: "Ahmad Fauzi, S.Pd",
     email: "ahmad.fauzi@smadap.sch.id",
+    teacher_type: "teacher",
     specialization: "wali_kelas",
     assignedClass: "Wali Kelas X MIPA 1",
     phoneNumber: "081234567892",
@@ -71,6 +75,7 @@ let INITIAL_TEACHERS: TeacherItem[] = [
     nip: "198711222014022005",
     fullName: "Dewi Lestari, S.Pd",
     email: "dewi.lestari@smadap.sch.id",
+    teacher_type: "teacher",
     specialization: "guru_mapel",
     assignedClass: null,
     phoneNumber: "081234567893",
@@ -83,6 +88,7 @@ let INITIAL_TEACHERS: TeacherItem[] = [
     nip: "198205102008011012",
     fullName: "Budi Kurniawan, M.Kom",
     email: "budi.kurniawan@smadap.sch.id",
+    teacher_type: "teacher",
     specialization: "wali_kelas",
     assignedClass: "Wali Kelas XI RPL 1",
     phoneNumber: "081234567894",
@@ -95,11 +101,25 @@ let INITIAL_TEACHERS: TeacherItem[] = [
     nip: "199307042022032014",
     fullName: "Nurul Hidayah, S.Pd",
     email: "nurul.hidayah@smadap.sch.id",
+    teacher_type: "counselor",
     specialization: "guru_bk",
-    assignedClass: null,
+    assignedClass: "Konseling Kelas X",
     phoneNumber: "081234567895",
     status: "active",
     createdAt: "2024-07-25",
+  },
+  {
+    id: "tch-7",
+    profileId: "usr-guru-07",
+    nip: "198906182015021009",
+    fullName: "Hendra Wijaya, S.Psi",
+    email: "hendra.wijaya@smadap.sch.id",
+    teacher_type: "counselor",
+    specialization: "guru_bk",
+    assignedClass: "Konseling Kelas XII",
+    phoneNumber: "081345678901",
+    status: "active",
+    createdAt: "2024-07-28",
   },
 ];
 
@@ -121,6 +141,7 @@ export async function getTeachersAction(
 ): Promise<PaginatedResult<TeacherItem>> {
   const {
     search = "",
+    teacher_type,
     specialization,
     page = 1,
     pageSize = 10,
@@ -136,13 +157,19 @@ export async function getTeachersAction(
         id,
         profile_id,
         nip,
+        teacher_type,
         specialization,
         assigned_class,
+        phone_number,
         created_at,
         profiles:profile_id (email, full_name, avatar_url, phone_number)
       `,
         { count: "exact" }
       );
+
+      if (teacher_type && teacher_type !== "all") {
+        query = query.eq("teacher_type", teacher_type);
+      }
 
       if (specialization && specialization !== "all") {
         query = query.eq("specialization", specialization);
@@ -155,37 +182,86 @@ export async function getTeachersAction(
       const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;
 
-      const { data, count, error } = await query
+      let { data, count, error } = await query
         .order("nip", { ascending: sortOrder === "asc" })
         .range(from, to);
+
+      // Safe fallback if `teacher_type` or `phone_number` column migration has not been applied yet on remote DB
+      if (
+        error &&
+        (error.message?.includes("teacher_type") || error.message?.includes("phone_number"))
+      ) {
+        let fallbackQuery = supabase.from("teachers").select(
+          `
+          id,
+          profile_id,
+          nip,
+          specialization,
+          assigned_class,
+          created_at,
+          profiles:profile_id (email, full_name, avatar_url, phone_number)
+        `,
+          { count: "exact" }
+        );
+
+        if (teacher_type === "counselor") {
+          fallbackQuery = fallbackQuery.eq("specialization", "guru_bk");
+        } else if (teacher_type === "teacher") {
+          fallbackQuery = fallbackQuery.neq("specialization", "guru_bk");
+        }
+
+        if (specialization && specialization !== "all") {
+          fallbackQuery = fallbackQuery.eq("specialization", specialization);
+        }
+
+        if (search.trim()) {
+          fallbackQuery = fallbackQuery.or(`nip.ilike.%${search}%,assigned_class.ilike.%${search}%`);
+        }
+
+        const fallbackRes = await fallbackQuery
+          .order("nip", { ascending: sortOrder === "asc" })
+          .range(from, to);
+        data = fallbackRes.data as any;
+        count = fallbackRes.count;
+        error = fallbackRes.error;
+      }
 
       if (!error && data) {
         const items: TeacherItem[] = data.map((d: any) => {
           const profile = d.profiles || {};
+          const resolvedType: "teacher" | "counselor" =
+            d.teacher_type === "counselor" || d.specialization === "guru_bk"
+              ? "counselor"
+              : "teacher";
           return {
             id: d.id,
             profileId: d.profile_id,
             nip: d.nip,
             fullName: profile.full_name || "Nama Guru",
             email: profile.email || "-",
+            teacher_type: resolvedType,
             specialization: d.specialization || "guru_mapel",
             assignedClass: d.assigned_class,
-            phoneNumber: profile.phone_number,
+            phoneNumber: d.phone_number || profile.phone_number || null,
             avatarUrl: profile.avatar_url,
             status: "active",
             createdAt: d.created_at,
           };
         });
 
-        // Filter client-side search on joined full_name/email if needed
+        // Filter client-side search on joined full_name/email/phoneNumber if needed
         let finalItems = items;
+        if (teacher_type && teacher_type !== "all") {
+          finalItems = finalItems.filter((t) => t.teacher_type === teacher_type);
+        }
         if (search.trim()) {
           const s = search.toLowerCase();
-          finalItems = items.filter(
+          finalItems = finalItems.filter(
             (t) =>
               t.fullName.toLowerCase().includes(s) ||
               t.email.toLowerCase().includes(s) ||
-              t.nip.includes(s)
+              t.nip.includes(s) ||
+              (t.phoneNumber && t.phoneNumber.includes(s))
           );
         }
 
@@ -213,8 +289,13 @@ export async function getTeachersAction(
         t.fullName.toLowerCase().includes(s) ||
         t.email.toLowerCase().includes(s) ||
         t.nip.includes(s) ||
+        (t.phoneNumber && t.phoneNumber.includes(s)) ||
         (t.assignedClass && t.assignedClass.toLowerCase().includes(s))
     );
+  }
+
+  if (teacher_type && teacher_type !== "all") {
+    filtered = filtered.filter((t) => t.teacher_type === teacher_type);
   }
 
   if (specialization && specialization !== "all") {
@@ -248,6 +329,29 @@ export async function getTeachersAction(
 }
 
 // -------------------------------------------------------------
+// GET COUNSELOR TEACHERS FOR PUBLIC "LAPOR BK" (SINGLE SOURCE OF TRUTH)
+// -------------------------------------------------------------
+
+export async function getCounselorTeachersAction(): Promise<PublicCounselorContact[]> {
+  const result = await getTeachersAction({
+    teacher_type: "counselor",
+    pageSize: 100,
+    sortBy: "fullName",
+    sortOrder: "asc",
+  });
+
+  return result.items
+    .filter((t) => t.teacher_type === "counselor" && t.status === "active")
+    .map((t) => ({
+      id: t.id,
+      fullName: t.fullName,
+      roleTitle: "Guru BK",
+      assignedClass: t.assignedClass || null,
+      phoneNumber: t.phoneNumber ? t.phoneNumber.replace(/[^0-9+\-\s()]/g, "").trim() : null,
+    }));
+}
+
+// -------------------------------------------------------------
 // ADD TEACHER (AUTOMATICALLY CREATE SUPABASE AUTH ACCOUNT)
 // -------------------------------------------------------------
 
@@ -265,7 +369,22 @@ export async function addTeacherAction(
     };
   }
 
-  const { nip, fullName, email, specialization, assignedClass, temporaryPassword } = parsed.data;
+  const {
+    nip,
+    fullName,
+    email,
+    teacher_type,
+    specialization,
+    phoneNumber,
+    assignedClass,
+    temporaryPassword,
+  } = parsed.data;
+  const resolvedTeacherType: "teacher" | "counselor" =
+    teacher_type === "counselor" || specialization === "guru_bk"
+      ? "counselor"
+      : "teacher";
+  const resolvedSpecialization =
+    resolvedTeacherType === "counselor" ? "guru_bk" : specialization;
   const defaultPassword = temporaryPassword || "Guru123!";
   const generatedProfileId = `usr-guru-${Date.now()}`;
   const generatedTeacherId = `tch-${Date.now()}`;
@@ -293,6 +412,7 @@ export async function addTeacherAction(
           user_metadata: {
             full_name: fullName,
             role: "teacher",
+            teacher_type: resolvedTeacherType,
             nip,
           },
         });
@@ -309,6 +429,7 @@ export async function addTeacherAction(
             data: {
               full_name: fullName,
               role: "teacher",
+              teacher_type: resolvedTeacherType,
               nip,
             },
           },
@@ -326,19 +447,41 @@ export async function addTeacherAction(
           email,
           full_name: fullName,
           role: "teacher",
+          phone_number: phoneNumber || null,
         });
 
-        // 3. Insert into teachers table
-        const { data: teacherRecord, error: teacherError } = await supabase
+        // 3. Insert into teachers table (with safe fallback if teacher_type/phone_number column migration hasn't run yet)
+        let { data: teacherRecord, error: teacherError } = await supabase
           .from("teachers")
           .insert({
             profile_id: authUserId,
             nip,
-            specialization,
+            teacher_type: resolvedTeacherType,
+            specialization: resolvedSpecialization,
             assigned_class: assignedClass || null,
+            phone_number: phoneNumber.trim(),
           })
           .select()
           .single();
+
+        if (
+          teacherError &&
+          (teacherError.message?.includes("teacher_type") ||
+            teacherError.message?.includes("phone_number"))
+        ) {
+          const fallbackInsert = await supabase
+            .from("teachers")
+            .insert({
+              profile_id: authUserId,
+              nip,
+              specialization: resolvedSpecialization,
+              assigned_class: assignedClass || null,
+            })
+            .select()
+            .single();
+          teacherRecord = fallbackInsert.data;
+          teacherError = fallbackInsert.error;
+        }
 
         if (teacherError) {
           throw new Error(teacherError.message);
@@ -346,6 +489,7 @@ export async function addTeacherAction(
 
         if (teacherRecord) {
           revalidatePath("/admin/teachers");
+          revalidatePath("/");
           return {
             success: true,
             message: `Guru ${fullName} berhasil ditambahkan dan Akun Supabase Auth telah aktif!`,
@@ -356,8 +500,10 @@ export async function addTeacherAction(
                 nip,
                 fullName,
                 email,
-                specialization,
+                teacher_type: resolvedTeacherType,
+                specialization: resolvedSpecialization,
                 assignedClass,
+                phoneNumber: phoneNumber || null,
                 status: "active",
                 createdAt: new Date().toISOString(),
               },
@@ -382,14 +528,17 @@ export async function addTeacherAction(
     nip,
     fullName,
     email,
-    specialization,
+    teacher_type: resolvedTeacherType,
+    specialization: resolvedSpecialization,
     assignedClass: assignedClass || null,
+    phoneNumber: phoneNumber || null,
     status: "active",
     createdAt: new Date().toISOString().split("T")[0],
   };
 
   INITIAL_TEACHERS.unshift(newTeacher);
   revalidatePath("/admin/teachers");
+  revalidatePath("/");
 
   return {
     success: true,
@@ -421,7 +570,13 @@ export async function editTeacherAction(
     };
   }
 
-  const { nip, fullName, email, specialization, assignedClass } = parsed.data;
+  const { nip, fullName, email, teacher_type, specialization, phoneNumber, assignedClass } = parsed.data;
+  const resolvedTeacherType: "teacher" | "counselor" =
+    teacher_type === "counselor" || specialization === "guru_bk"
+      ? "counselor"
+      : "teacher";
+  const resolvedSpecialization =
+    resolvedTeacherType === "counselor" ? "guru_bk" : specialization;
 
   // Check NIP uniqueness across other teachers
   if (INITIAL_TEACHERS.some((t) => t.nip === nip && t.id !== id)) {
@@ -441,21 +596,40 @@ export async function editTeacherAction(
         .update({
           full_name: fullName,
           email,
+          phone_number: phoneNumber || null,
         })
         .eq("id", profileId);
 
-      // Update teachers
-      const { error: tchError } = await supabase
+      // Update teachers (with safe fallback if teacher_type/phone_number column migration hasn't run yet)
+      let { error: tchError } = await supabase
         .from("teachers")
         .update({
           nip,
-          specialization,
+          teacher_type: resolvedTeacherType,
+          specialization: resolvedSpecialization,
           assigned_class: assignedClass || null,
+          phone_number: phoneNumber.trim(),
         })
         .eq("id", id);
 
+      if (
+        tchError &&
+        (tchError.message?.includes("teacher_type") || tchError.message?.includes("phone_number"))
+      ) {
+        const fallbackUpdate = await supabase
+          .from("teachers")
+          .update({
+            nip,
+            specialization: resolvedSpecialization,
+            assigned_class: assignedClass || null,
+          })
+          .eq("id", id);
+        tchError = fallbackUpdate.error;
+      }
+
       if (!tchError) {
         revalidatePath("/admin/teachers");
+        revalidatePath("/");
         return {
           success: true,
           message: `Data Guru ${fullName} berhasil diperbarui.`,
@@ -473,12 +647,15 @@ export async function editTeacherAction(
       nip,
       fullName,
       email,
-      specialization,
+      teacher_type: resolvedTeacherType,
+      specialization: resolvedSpecialization,
       assignedClass: assignedClass || null,
+      phoneNumber: phoneNumber || INITIAL_TEACHERS[idx].phoneNumber || null,
     };
   }
 
   revalidatePath("/admin/teachers");
+  revalidatePath("/");
   return {
     success: true,
     message: `Data Guru ${fullName} berhasil diperbarui.`,

@@ -1,0 +1,40 @@
+import React, { ElementType } from "react";
+import { typography } from "@/lib/design-system";
+
+interface SectionHeaderProps {
+  title: string;
+  description?: string;
+  icon?: ElementType;
+  badge?: React.ReactNode;
+  action?: React.ReactNode;
+  className?: string;
+}
+
+export default function SectionHeader({
+  title,
+  description,
+  icon: Icon,
+  badge,
+  action,
+  className = "",
+}: SectionHeaderProps) {
+  return (
+    <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${className}`}>
+      <div>
+        <div className="flex items-center gap-2.5">
+          {Icon && (
+            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-700 border border-blue-200/60 flex items-center justify-center shrink-0">
+              <Icon className="w-4 h-4" />
+            </div>
+          )}
+          <h2 className={typography.sectionTitle}>{title}</h2>
+          {badge}
+        </div>
+        {description && (
+          <p className={typography.sectionDescription}>{description}</p>
+        )}
+      </div>
+      {action && <div className="shrink-0">{action}</div>}
+    </div>
+  );
+}

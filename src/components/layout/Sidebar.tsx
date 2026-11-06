@@ -1,26 +1,71 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ShieldCheck, Sparkles, School } from "lucide-react";
-import { ROLE_NAVIGATION } from "@/lib/constants/navigation";
+import { ShieldCheck } from "lucide-react";
+import { ROLE_NAVIGATION, getTeacherNavigation } from "@/lib/constants/navigation";
 import { ROLE_LABELS } from "@/lib/constants/auth";
-import { UserRole } from "@/types/auth";
+import { getSystemSettingsAction } from "@/features/settings/actions";
+import { UserRole, UserProfile, normalizeRole } from "@/types/auth";
 
 interface SidebarProps {
-  role: UserRole;
+  role?: string;
+  user?: UserProfile;
   className?: string;
   onNavigate?: () => void;
 }
 
-export default function Sidebar({ role, className = "", onNavigate }: SidebarProps) {
+export default function Sidebar({ role, user, className = "", onNavigate }: SidebarProps) {
   const pathname = usePathname();
-  const navSections = ROLE_NAVIGATION[role] || ROLE_NAVIGATION.siswa;
-  const roleMeta = ROLE_LABELS[role] || {
-    title: role,
+  const normalizedRole = normalizeRole(role || user?.role);
+  const navSections =
+    normalizedRole === "guru"
+      ? getTeacherNavigation(user)
+      : ROLE_NAVIGATION[normalizedRole] || ROLE_NAVIGATION.siswa;
+  const roleMeta = ROLE_LABELS[normalizedRole] || {
+    title: normalizedRole,
     subtitle: "",
     badge: "bg-slate-100 text-slate-700",
   };
+
+  const [academicYear, setAcademicYear] = useState<string>("2026/2027");
+  const [semester, setSemester] = useState<string>("Ganjil");
+
+  useEffect(() => {
+    let isMounted = true;
+    getSystemSettingsAction()
+      .then((res) => {
+        if (isMounted && res?.activeSetting) {
+          setAcademicYear(res.activeSetting.academicYear);
+          setSemester(res.activeSetting.semester);
+        }
+      })
+      .catch(() => {});
+
+    const handleSettingsEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<{
+        academicYear: string;
+        semester: string;
+      }>;
+      if (customEvent.detail) {
+        setAcademicYear(customEvent.detail.academicYear);
+        setSemester(customEvent.detail.semester);
+      }
+    };
+
+    window.addEventListener(
+      "smadap:academic-settings-updated",
+      handleSettingsEvent
+    );
+    return () => {
+      isMounted = false;
+      window.removeEventListener(
+        "smadap:academic-settings-updated",
+        handleSettingsEvent
+      );
+    };
+  }, []);
 
   return (
     <aside
@@ -55,7 +100,7 @@ export default function Sidebar({ role, className = "", onNavigate }: SidebarPro
             <span
               className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${roleMeta.badge}`}
             >
-              {role.toUpperCase()}
+              {normalizedRole.toUpperCase()}
             </span>
           </div>
         </div>
@@ -71,7 +116,9 @@ export default function Sidebar({ role, className = "", onNavigate }: SidebarPro
               )}
 
               {section.items.map((item) => {
-                const isActive = pathname === item.href;
+                const isActive =
+                  pathname === item.href ||
+                  (item.href === "/guru" && pathname.startsWith("/guru/report"));
                 const Icon = item.icon;
 
                 return (
@@ -118,9 +165,13 @@ export default function Sidebar({ role, className = "", onNavigate }: SidebarPro
         <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/60">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-            <span className="text-[11px] font-bold text-slate-700">Tahun Ajaran 2024/2025</span>
+            <span className="text-[11px] font-bold text-slate-700">
+              Tahun Ajaran {academicYear}
+            </span>
           </div>
-          <div className="text-[10px] text-slate-400 mt-0.5">Semester Ganjil &bull; Disiplin Positif</div>
+          <div className="text-[10px] text-slate-400 mt-0.5">
+            Semester {semester} &bull; Disiplin Positif
+          </div>
         </div>
       </div>
     </aside>

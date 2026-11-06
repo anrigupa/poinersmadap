@@ -40,3 +40,14 @@ export interface ActionResponse<T = unknown> {
   data?: T;
   errors?: Record<string, string[]>;
 }
+
+export interface TopViolationItem {
+  ranking: number;
+  violationId: string;
+  violationName: string;
+  code?: string;
+  categoryName?: string;
+  count: number;
+  points?: number;
+}
+

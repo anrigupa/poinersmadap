@@ -73,8 +73,6 @@ export default function SearchableStudentSelector({
                   {selectedStudent.className}
                 </span>
                 <span>•</span>
-                <span>Jurusan {selectedStudent.major}</span>
-                <span>•</span>
                 <span className="font-bold text-amber-700">
                   Poin Saat Ini: {selectedStudent.totalViolationPoints}
                 </span>

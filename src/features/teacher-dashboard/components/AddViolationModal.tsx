@@ -177,10 +177,10 @@ export default function AddViolationModal({
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-900">
-                Input Pelanggaran Siswa (Quick Action)
+                Input Cepat Pelanggaran Siswa
               </h3>
               <p className="text-xs text-slate-500">
-                Catat laporan insiden kedisiplinan dan tambahkan poin pelanggaran
+                Catat pelanggaran langsung tanpa meninggalkan dashboard
               </p>
             </div>
           </div>

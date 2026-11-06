@@ -14,17 +14,24 @@ export const teacherFormSchema = z.object({
     .string()
     .email("Format alamat email tidak valid")
     .max(100, "Email maksimal 100 karakter"),
+  teacher_type: z.enum(["teacher", "counselor"]),
   specialization: z.enum([
     "guru_piket",
     "wali_kelas",
     "guru_bk",
     "guru_mapel",
   ]),
+  phoneNumber: z
+    .string()
+    .min(9, "Nomor HP minimal 9 digit")
+    .max(25, "Nomor HP maksimal 25 karakter")
+    .regex(/^[0-9+\-\s()]+$/, "Nomor HP hanya boleh berisi angka, spasi, atau tanda + / -"),
   assignedClass: z.string().max(50).optional(),
   temporaryPassword: z
     .string()
     .min(6, "Password sementara minimal 6 karakter")
-    .optional(),
+    .optional()
+    .or(z.literal("")),
 });
 
 export type TeacherFormData = z.infer<typeof teacherFormSchema>;

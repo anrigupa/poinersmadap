@@ -2,11 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentSession } from "@/features/auth/actions/authActions";
 import {
   RecordViolationInput,
   RecordViolationResult,
   ActionResponse,
+  TopViolationItem,
 } from "@/features/violations/types";
 import { recordViolationSchema } from "@/features/violations/schemas";
 import { getStudentsAction, applyStudentViolationPoints } from "@/features/students/actions";
@@ -121,144 +123,263 @@ export async function recordStudentViolationAction(
   // -----------------------------------------------------------
   // 6. SAVE VIOLATION & UPDATE STUDENT TOTAL POINTS
   // -----------------------------------------------------------
+  if (!isSupabaseLive()) {
+    return {
+      success: false,
+      message: "Database Supabase tidak terhubung. Tidak dapat mencatat pelanggaran.",
+    };
+  }
+
+  try {
+    const supabase = process.env.SUPABASE_SERVICE_ROLE_KEY
+      ? createAdminClient()
+      : await createClient();
+
+    // Flow: authenticated user -> profile_id -> teachers table -> teachers.id
+    let teacherDbId: string | null = session.user.teacherId || null;
+    if (!teacherDbId) {
+      const { data: teacherRow } = await supabase
+        .from("teachers")
+        .select("id")
+        .or(`profile_id.eq.${reporter.id},id.eq.${reporter.id}`)
+        .maybeSingle();
+
+      if (teacherRow?.id) {
+        teacherDbId = teacherRow.id;
+      }
+    }
+
+    if (!teacherDbId) {
+      return {
+        success: false,
+        message: "Akses ditolak: Data pengajar tidak ditemukan dalam tabel guru.",
+      };
+    }
+
+    // A. Save violation with links to student and teacher (strictly teachers.id)
+    const { data: inserted, error: insertError } = await supabase
+      .from("student_violations")
+      .insert({
+        student_id: student.id,
+        violation_type_id: rule.id,
+        reported_by: teacherDbId, // Strictly teachers.id! Never profile_id!
+        points: addedPoints,
+        notes: data.notes + (data.location ? ` [Lokasi: ${data.location}]` : ""),
+        evidence_url: data.evidenceUrl || null,
+        incident_date: data.incidentDate,
+        status: "confirmed",
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      return {
+        success: false,
+        message: `Gagal mencatat pelanggaran di database: ${insertError.message}`,
+      };
+    }
+
+    // B. Update student total points and status
+    const { error: studentUpdateError } = await supabase
+      .from("students")
+      .update({
+        total_violation_points: newTotalPoints,
+        status: newStatus,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", student.id);
+
+    if (studentUpdateError) {
+      return {
+        success: false,
+        message: `Gagal memperbarui total poin siswa: ${studentUpdateError.message}`,
+      };
+    }
+
+    revalidatePath("/guru");
+    revalidatePath("/guru/history");
+    revalidatePath("/guru/report");
+    revalidatePath("/admin/students");
+    revalidatePath("/admin");
+    revalidatePath("/siswa");
+
+    const result: RecordViolationResult = {
+      violationId: inserted?.id || violationId,
+      studentId: student.id,
+      studentName: student.fullName,
+      studentNis: student.nis,
+      className: student.className,
+      previousPoints,
+      addedPoints,
+      newTotalPoints,
+      previousStatus,
+      newStatus,
+      sanctionEscalated,
+      ruleCode: rule.code,
+      violationName: rule.name,
+      categoryName: rule.categoryName,
+      reportedByName: reporter.fullName,
+      reportedByNip: reporter.nip,
+      incidentDate: data.incidentDate,
+      formattedDate,
+      notes: data.notes,
+      location: data.location,
+      evidenceUrl: data.evidenceUrl,
+      createdAt: inserted?.created_at || new Date().toISOString(),
+    };
+
+    return {
+      success: true,
+      message: `Pelanggaran "${rule.name}" (+${addedPoints} poin) berhasil dicatat untuk ${student.fullName}. Total poin saat ini: ${newTotalPoints}.`,
+      data: result,
+    };
+  } catch (err: any) {
+    console.error("Database recordStudentViolation error:", err);
+    return {
+      success: false,
+      message: `Terjadi kesalahan saat menyimpan pelanggaran: ${err.message || err}`,
+    };
+  }
+}
+
+// -------------------------------------------------------------
+// GET TOP 5 VIOLATIONS (DYNAMIC LIVE RANKING FROM SUPABASE)
+// -------------------------------------------------------------
+
+export async function getTopViolationsAction(): Promise<TopViolationItem[]> {
   if (isSupabaseLive()) {
     try {
-      const supabase = await createClient();
+      const supabase = process.env.SUPABASE_SERVICE_ROLE_KEY
+        ? createAdminClient()
+        : await createClient();
 
-      // A. Save violation with links to student and teacher
-      const { data: inserted, error: insertError } = await supabase
+      const { data, error } = await supabase
         .from("student_violations")
-        .insert({
-          student_id: student.id,
-          violation_type_id: rule.id,
-          reported_by: reporter.id,
-          points: addedPoints,
-          notes: data.notes + (data.location ? ` [Lokasi: ${data.location}]` : ""),
-          evidence_url: data.evidenceUrl || null,
-          incident_date: data.incidentDate,
-          status: "confirmed",
-        })
-        .select()
-        .single();
+        .select(`
+          id,
+          violation_type_id,
+          points,
+          status,
+          violation_types:violation_type_id (
+            id,
+            name,
+            code,
+            points,
+            violation_categories:category_id (name)
+          )
+        `)
+        .neq("status", "cancelled");
 
-      if (insertError) {
-        throw new Error(insertError.message);
+      if (error) {
+        console.warn("Supabase top violations query error:", error.message);
+      } else if (data) {
+        if (data.length === 0) {
+          return [];
+        }
+
+        const map = new Map<
+          string,
+          {
+            violationId: string;
+            violationName: string;
+            code?: string;
+            categoryName?: string;
+            count: number;
+            points?: number;
+          }
+        >();
+
+        data.forEach((row: any) => {
+          const vType = Array.isArray(row.violation_types)
+            ? row.violation_types[0]
+            : row.violation_types;
+          const cat = Array.isArray(vType?.violation_categories)
+            ? vType?.violation_categories[0]
+            : vType?.violation_categories;
+
+          const key = row.violation_type_id || vType?.name || "unknown";
+          const name = vType?.name || "Pelanggaran Tata Tertib";
+          const code = vType?.code;
+          const categoryName = cat?.name || "Umum";
+          const points = Number(row.points) || Number(vType?.points) || 5;
+
+          const existing = map.get(key);
+          if (existing) {
+            existing.count += 1;
+          } else {
+            map.set(key, {
+              violationId: key,
+              violationName: name,
+              code,
+              categoryName,
+              count: 1,
+              points,
+            });
+          }
+        });
+
+        const sorted = Array.from(map.values())
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 5)
+          .map((item, index) => ({
+            ranking: index + 1,
+            ...item,
+          }));
+
+        return sorted;
       }
-
-      // B. Update student total points and status
-      const { error: studentUpdateError } = await supabase
-        .from("students")
-        .update({
-          total_violation_points: newTotalPoints,
-          status: newStatus,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", student.id);
-
-      if (studentUpdateError) {
-        throw new Error(studentUpdateError.message);
-      }
-
-      // Sync local in-memory fallback
-      await applyStudentViolationPoints(student.id, addedPoints);
-
-      revalidatePath("/guru");
-      revalidatePath("/guru/report");
-      revalidatePath("/admin/students");
-      revalidatePath("/admin");
-      revalidatePath("/siswa");
-
-      const result: RecordViolationResult = {
-        violationId: inserted?.id || violationId,
-        studentId: student.id,
-        studentName: student.fullName,
-        studentNis: student.nis,
-        className: student.className,
-        previousPoints,
-        addedPoints,
-        newTotalPoints,
-        previousStatus,
-        newStatus,
-        sanctionEscalated,
-        ruleCode: rule.code,
-        violationName: rule.name,
-        categoryName: rule.categoryName,
-        reportedByName: reporter.fullName,
-        reportedByNip: reporter.nip,
-        incidentDate: data.incidentDate,
-        formattedDate,
-        notes: data.notes,
-        location: data.location,
-        evidenceUrl: data.evidenceUrl,
-        createdAt: new Date().toISOString(),
-      };
-
-      return {
-        success: true,
-        message: `Pelanggaran "${rule.name}" (+${addedPoints} poin) berhasil dicatat untuk ${student.fullName}. Total poin saat ini: ${newTotalPoints}.`,
-        data: result,
-      };
-    } catch (err: any) {
-      console.warn("Supabase recordStudentViolation error, using fallback:", err.message);
+    } catch (err) {
+      console.warn("Error in getTopViolationsAction:", err);
     }
   }
 
-  // -----------------------------------------------------------
-  // 7. FALLBACK / IN-MEMORY PERSISTENCE
-  // -----------------------------------------------------------
-  // A. Update student points in memory
-  await applyStudentViolationPoints(student.id, addedPoints);
-
-  // B. Sync with teacher dashboard actions
-  await addTeacherViolationAction(reporter, {
-    studentId: student.id,
-    studentNis: student.nis,
-    studentName: student.fullName,
-    className: student.className,
-    violationTypeId: rule.id,
-    ruleCode: rule.code,
-    violationName: rule.name,
-    categoryName: rule.categoryName,
-    points: addedPoints,
-    notes: data.notes + (data.location ? ` [Lokasi: ${data.location}]` : ""),
-    incidentDate: data.incidentDate,
-    evidenceUrl: data.evidenceUrl,
-  });
-
-  revalidatePath("/guru");
-  revalidatePath("/guru/report");
-  revalidatePath("/admin/students");
-  revalidatePath("/admin");
-  revalidatePath("/siswa");
-
-  const result: RecordViolationResult = {
-    violationId,
-    studentId: student.id,
-    studentName: student.fullName,
-    studentNis: student.nis,
-    className: student.className,
-    previousPoints,
-    addedPoints,
-    newTotalPoints,
-    previousStatus,
-    newStatus,
-    sanctionEscalated,
-    ruleCode: rule.code,
-    violationName: rule.name,
-    categoryName: rule.categoryName,
-    reportedByName: reporter.fullName,
-    reportedByNip: reporter.nip,
-    incidentDate: data.incidentDate,
-    formattedDate,
-    notes: data.notes,
-    location: data.location,
-    evidenceUrl: data.evidenceUrl,
-    createdAt: new Date().toISOString(),
-  };
-
-  return {
-    success: true,
-    message: `Pelanggaran "${rule.name}" (+${addedPoints} poin) berhasil dicatat untuk ${student.fullName}. Total poin saat ini: ${newTotalPoints}.`,
-    data: result,
-  };
+  // Fallback demo violations if Supabase connection is offline
+  return [
+    {
+      ranking: 1,
+      violationId: "v-1",
+      violationName: "Terlambat Hadir di Sekolah",
+      code: "DIS-01",
+      categoryName: "Kedisiplinan & Waktu",
+      count: 125,
+      points: 5,
+    },
+    {
+      ranking: 2,
+      violationId: "v-2",
+      violationName: "Tidak Memakai Atribut Seragam Lengkap",
+      code: "RPA-01",
+      categoryName: "Kerapian & Seragam",
+      count: 98,
+      points: 5,
+    },
+    {
+      ranking: 3,
+      violationId: "v-3",
+      violationName: "Rambut Tidak Sesuai Ketentuan",
+      code: "RPA-02",
+      categoryName: "Kerapian & Seragam",
+      count: 76,
+      points: 10,
+    },
+    {
+      ranking: 4,
+      violationId: "v-4",
+      violationName: "Keluar Kelas / Tidak Masuk Tanpa Izin",
+      code: "DIS-03",
+      categoryName: "Kedisiplinan & Waktu",
+      count: 54,
+      points: 20,
+    },
+    {
+      ranking: 5,
+      violationId: "v-5",
+      violationName: "Membawa & Menggunakan HP Saat Jam Pelajaran",
+      code: "ETK-01",
+      categoryName: "Etika & Perilaku",
+      count: 31,
+      points: 10,
+    },
+  ];
 }
+

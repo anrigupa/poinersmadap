@@ -174,7 +174,7 @@ export default function ViolationManagementClient({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Toast Banner */}
       {toastMessage && (
         <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold rounded-2xl flex items-center justify-between shadow-xs animate-in fade-in slide-in-from-top-2">

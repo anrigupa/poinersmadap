@@ -1,5 +1,9 @@
 import { UserProfile } from "@/types/auth";
 
+import { ViolationDateRange } from "@/lib/dateUtils";
+
+export type { ViolationDateRange };
+
 export interface TeacherViolationRecord {
   id: string;
   studentId: string;
@@ -27,12 +31,13 @@ export interface TeacherDashboardStats {
   violationsThisMonth: number;
   totalPersonalSubmissions: number;
   totalPointsAccrued: number;
+  studentsHandledCount?: number;
 }
 
 export interface TeacherViolationFilter {
   search?: string;
   status?: string;
-  dateRange?: "all" | "today" | "this_month";
+  dateRange?: ViolationDateRange;
   page?: number;
   pageSize?: number;
 }
@@ -72,3 +77,30 @@ export interface TeacherDashboardData {
   recentSubmissions: PaginatedResult<TeacherViolationRecord>;
   teacherProfile: UserProfile;
 }
+
+export interface HomeroomStudentItem {
+  id: string;
+  studentName: string;
+  nisn: string;
+  nis?: string;
+  className: string;
+  totalViolations: number;
+  totalPoints: number;
+  status?: string;
+}
+
+export interface HomeroomDisciplineSummary {
+  totalStudents: number;
+  studentsWithoutViolations: number;
+  studentsWithViolations: number;
+  averageViolationPoints: number;
+}
+
+export interface HomeroomClassData {
+  isHomeroom: boolean;
+  assignedClass: string | null;
+  message?: string;
+  summary: HomeroomDisciplineSummary;
+  students: HomeroomStudentItem[];
+}
+

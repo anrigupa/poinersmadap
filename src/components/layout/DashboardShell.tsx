@@ -4,11 +4,11 @@ import { useState } from "react";
 import Sidebar from "@/components/layout/Sidebar";
 import Navbar from "@/components/layout/Navbar";
 import MobileNav from "@/components/layout/MobileNav";
-import { UserProfile, UserRole } from "@/types/auth";
+import { UserProfile, UserRole, normalizeRole } from "@/types/auth";
 
 interface DashboardShellProps {
   user: UserProfile;
-  role?: UserRole;
+  role?: string;
   children: React.ReactNode;
 }
 
@@ -18,13 +18,14 @@ export default function DashboardShell({
   children,
 }: DashboardShellProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const normalizedRole = normalizeRole(role || user?.role);
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col antialiased">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col antialiased transition-colors">
       <div className="flex flex-1">
         {/* 1. Desktop Persistent Sidebar */}
         <div className="hidden lg:block shrink-0 sticky top-0 h-screen">
-          <Sidebar role={role} />
+          <Sidebar role={normalizedRole} user={user} />
         </div>
 
         {/* 2. Main Content Column */}
@@ -44,7 +45,8 @@ export default function DashboardShell({
 
       {/* 3. Mobile Navigation Drawer & Bottom Bar */}
       <MobileNav
-        role={role}
+        role={normalizedRole}
+        user={user}
         isOpen={mobileMenuOpen}
         onClose={() => setMobileMenuOpen(false)}
       />

@@ -1,6 +1,6 @@
 "use client";
 
-import { Edit, Trash2, KeyRound, Users, GraduationCap, ShieldCheck } from "lucide-react";
+import { Edit, Trash2, KeyRound, Users, GraduationCap, Phone, Headset, BookOpen } from "lucide-react";
 import { TeacherItem } from "@/features/teachers/types";
 
 interface TeacherTableProps {
@@ -35,12 +35,14 @@ export default function TeacherTable({
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-slate-50/70 border-b border-slate-100 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-              <th className="py-3 px-4 sm:px-6">Nama Guru & Kontak</th>
-              <th className="py-3 px-4">NIP</th>
-              <th className="py-3 px-4">Tugas / Peran</th>
-              <th className="py-3 px-4">Kelas Binaan</th>
-              <th className="py-3 px-4 sm:px-6 text-right">Aksi</th>
+            <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-700 uppercase tracking-wider">
+              <th className="py-3.5 px-4 sm:px-6">Nama Guru & Email</th>
+              <th className="py-3.5 px-4">NIP</th>
+              <th className="py-3.5 px-4">Nomor HP</th>
+              <th className="py-3.5 px-4">Jenis Guru</th>
+              <th className="py-3.5 px-4">Tugas / Peran</th>
+              <th className="py-3.5 px-4">Kelas / Bidang</th>
+              <th className="py-3.5 px-4 sm:px-6 text-right">Aksi</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-xs">
@@ -52,6 +54,8 @@ export default function TeacherTable({
                 .join("")
                 .toUpperCase();
 
+              const isCounselor =
+                teacher.teacher_type === "counselor" || teacher.specialization === "guru_bk";
               const isBk = teacher.specialization === "guru_bk";
               const isPiket = teacher.specialization === "guru_piket";
               const isWali = teacher.specialization === "wali_kelas";
@@ -74,15 +78,23 @@ export default function TeacherTable({
 
               return (
                 <tr key={teacher.id} className="hover:bg-slate-50/60 transition group">
-                  {/* Nama & Kontak */}
+                  {/* Nama & Email */}
                   <td className="py-3.5 px-4 sm:px-6">
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs">
+                      <div
+                        className={`w-9 h-9 rounded-xl bg-gradient-to-tr ${
+                          isCounselor
+                            ? "from-purple-600 to-indigo-600"
+                            : "from-blue-600 to-indigo-600"
+                        } text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs`}
+                      >
                         {initials}
                       </div>
                       <div className="min-w-0">
                         <div className="font-bold text-slate-900 truncate">{teacher.fullName}</div>
-                        <div className="text-[11px] text-slate-400 truncate mt-0.5">{teacher.email}</div>
+                        <div className="text-[11px] text-slate-400 truncate mt-0.5">
+                          {teacher.email}
+                        </div>
                       </div>
                     </div>
                   </td>
@@ -92,6 +104,33 @@ export default function TeacherTable({
                     <span className="font-mono text-xs font-semibold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-md inline-block">
                       {teacher.nip}
                     </span>
+                  </td>
+
+                  {/* Nomor HP */}
+                  <td className="py-3.5 px-4">
+                    {teacher.phoneNumber ? (
+                      <span className="inline-flex items-center gap-1.5 font-mono text-xs font-semibold text-slate-700 bg-slate-50 border border-slate-200 px-2.5 py-0.5 rounded-lg">
+                        <Phone className="w-3 h-3 text-blue-600 shrink-0" />
+                        <span>{teacher.phoneNumber}</span>
+                      </span>
+                    ) : (
+                      <span className="text-slate-400 italic text-[11px]">Belum diisi</span>
+                    )}
+                  </td>
+
+                  {/* Jenis Guru (teacher_type) */}
+                  <td className="py-3.5 px-4">
+                    {isCounselor ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-purple-100/90 text-purple-800 border border-purple-200">
+                        <Headset className="w-3 h-3" />
+                        <span>Guru BK</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                        <BookOpen className="w-3 h-3" />
+                        <span>Guru Mata Pelajaran</span>
+                      </span>
+                    )}
                   </td>
 
                   {/* Tugas / Peran */}

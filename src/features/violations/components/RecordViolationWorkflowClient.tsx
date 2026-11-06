@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   UserSearch,
   BookOpen,
@@ -18,6 +19,8 @@ import {
   RotateCcw,
   ShieldCheck,
   PlusCircle,
+  RefreshCw,
+  X,
 } from "lucide-react";
 import { StudentItem } from "@/features/students/types";
 import { ViolationItem } from "@/features/rules/types";
@@ -32,6 +35,9 @@ interface RecordViolationWorkflowClientProps {
   students: StudentItem[];
   rules: ViolationItem[];
   currentUser: UserProfile;
+  hasPartialError?: boolean;
+  studentsFailed?: boolean;
+  rulesFailed?: boolean;
 }
 
 const COMMON_LOCATIONS = [
@@ -60,7 +66,13 @@ export default function RecordViolationWorkflowClient({
   students,
   rules,
   currentUser,
+  hasPartialError = false,
+  studentsFailed = false,
+  rulesFailed = false,
 }: RecordViolationWorkflowClientProps) {
+  const router = useRouter();
+  const [showPartialWarning, setShowPartialWarning] = useState<boolean>(hasPartialError);
+
   // Current Step: 1 | 2 | 3 | 4
   const [currentStep, setCurrentStep] = useState<number>(1);
 
@@ -307,6 +319,34 @@ export default function RecordViolationWorkflowClient({
         </div>
       </div>
 
+      {/* Partial Load Warning Banner */}
+      {showPartialWarning && (
+        <div className="p-4 rounded-2xl border border-amber-300 bg-amber-50 text-amber-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm font-semibold animate-in fade-in">
+          <div className="flex items-center gap-2.5">
+            <AlertTriangle className="w-5 h-5 text-amber-700 shrink-0" />
+            <span>Sebagian data gagal dimuat. Silakan muat ulang halaman.</span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => router.refresh()}
+              className="px-3.5 py-1.5 rounded-xl bg-amber-200/90 hover:bg-amber-300 active:scale-95 text-amber-950 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Muat Ulang</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowPartialWarning(false)}
+              className="p-1 rounded-lg text-amber-800 hover:text-amber-950 hover:bg-amber-100 transition"
+              title="Tutup Pesan"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 4-Step Stepper Header */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
         <div className="grid grid-cols-4 gap-2">
@@ -358,23 +398,43 @@ export default function RecordViolationWorkflowClient({
         {currentStep === 1 && (
           <div className="space-y-4">
             <div className="border-b border-slate-100 pb-3">
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
                 <UserSearch className="w-4 h-4 text-blue-600" />
-                Langkah 1: Cari & Pilih Siswa
+                Pilih Siswa
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
                 Cari siswa berdasarkan nama, NIS, atau filter berdasarkan rombongan belajar kelas.
               </p>
             </div>
 
-            <SearchableStudentSelector
-              students={students}
-              selectedStudent={selectedStudent}
-              onSelect={(student) => {
-                setSelectedStudent(student);
-                setErrorBanner(null);
-              }}
-            />
+            {studentsFailed || students.length === 0 ? (
+              <div className="p-8 text-center rounded-2xl border border-dashed border-amber-300 bg-amber-50/40 space-y-3">
+                <AlertTriangle className="w-8 h-8 text-amber-600 mx-auto" />
+                <div className="text-sm font-bold text-slate-800">
+                  Data Siswa Belum Tersedia
+                </div>
+                <p className="text-xs text-slate-500 max-w-md mx-auto">
+                  Sistem tidak dapat memuat daftar siswa dari server atau koneksi jaringan sedang tidak stabil.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => router.refresh()}
+                  className="px-4 py-2 rounded-xl bg-amber-200 hover:bg-amber-300 text-amber-950 text-xs font-bold transition inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Coba Muat Ulang Siswa</span>
+                </button>
+              </div>
+            ) : (
+              <SearchableStudentSelector
+                students={students}
+                selectedStudent={selectedStudent}
+                onSelect={(student) => {
+                  setSelectedStudent(student);
+                  setErrorBanner(null);
+                }}
+              />
+            )}
 
             <div className="pt-4 flex items-center justify-end border-t border-slate-100">
               <button
@@ -394,9 +454,9 @@ export default function RecordViolationWorkflowClient({
         {currentStep === 2 && (
           <div className="space-y-4">
             <div className="border-b border-slate-100 pb-3">
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
                 <BookOpen className="w-4 h-4 text-blue-600" />
-                Langkah 2: Pilih Pasal Pelanggaran
+                Pilih Aturan Tata Tertib
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
                 Pilih aturan tata tertib yang dilanggar oleh siswa{" "}
@@ -406,6 +466,22 @@ export default function RecordViolationWorkflowClient({
                 .
               </p>
             </div>
+
+            {rulesFailed && (
+              <div className="p-3.5 rounded-xl border border-amber-300 bg-amber-50 text-amber-950 text-xs font-medium flex items-center justify-between gap-3 animate-in fade-in">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0" />
+                  <span>Daftar aturan tata tertib belum dapat dimuat lengkap dari server.</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => router.refresh()}
+                  className="px-3 py-1 rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold text-[11px] shrink-0 cursor-pointer shadow-2xs"
+                >
+                  Muat Ulang
+                </button>
+              </div>
+            )}
 
             <ViolationRuleSelector
               rules={rules}
@@ -443,9 +519,9 @@ export default function RecordViolationWorkflowClient({
         {currentStep === 3 && (
           <div className="space-y-5">
             <div className="border-b border-slate-100 pb-3">
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
                 <FileEdit className="w-4 h-4 text-blue-600" />
-                Langkah 3: Tambahkan Catatan Kejadian & Foto Bukti
+                Catatan Kejadian & Foto Bukti
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
                 Lengkapi waktu insiden, lokasi kejadian, kronologis objektif, dan tindakan langsung.
@@ -565,9 +641,9 @@ export default function RecordViolationWorkflowClient({
         {currentStep === 4 && (
           <div className="space-y-5">
             <div className="border-b border-slate-100 pb-3">
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                Langkah 4: Tinjau Rangkuman & Simpan Laporan
+                Rangkuman & Konfirmasi Laporan
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
                 Pastikan data siswa, pasal pelanggaran, dan kronologis sudah akurat sebelum disimpan ke buku saku.

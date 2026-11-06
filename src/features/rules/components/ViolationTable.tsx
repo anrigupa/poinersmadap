@@ -29,12 +29,12 @@ export default function ViolationTable({ items, onEdit, onDelete }: ViolationTab
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-slate-50/70 border-b border-slate-100 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-              <th className="py-3 px-4 sm:px-6">Kode & Kategori</th>
-              <th className="py-3 px-4">Nama Pelanggaran</th>
-              <th className="py-3 px-4">Deskripsi Tata Tertib</th>
-              <th className="py-3 px-4 text-center">Bobot Sanksi</th>
-              <th className="py-3 px-4 sm:px-6 text-right">Aksi</th>
+            <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-700 uppercase tracking-wider">
+              <th className="py-3.5 px-4 sm:px-6">Kode & Kategori</th>
+              <th className="py-3.5 px-4">Nama Pelanggaran</th>
+              <th className="py-3.5 px-4">Deskripsi Tata Tertib</th>
+              <th className="py-3.5 px-4 text-center">Bobot Sanksi</th>
+              <th className="py-3.5 px-4 sm:px-6 text-right">Aksi</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-xs">

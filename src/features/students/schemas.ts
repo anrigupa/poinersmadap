@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ALL_AVAILABLE_CLASSES } from "@/lib/constants/classes";
 
 export const studentFormSchema = z.object({
   nisn: z
@@ -19,11 +20,9 @@ export const studentFormSchema = z.object({
     .string()
     .email("Format alamat email siswa tidak valid")
     .max(100, "Email maksimal 100 karakter"),
-  className: z
-    .string()
-    .min(2, "Kelas harus diisi, e.g. X MIPA 1")
-    .max(50, "Nama kelas maksimal 50 karakter"),
-  major: z.enum(["MIPA", "IPS", "Bahasa", "RPL", "TKJ", "Umum"]),
+  className: z.enum(ALL_AVAILABLE_CLASSES, {
+    message: "Pilih kelas yang valid dari daftar (contoh: X.A, XI.F, XII.I)",
+  }),
   gender: z.enum(["L", "P"]),
   parentName: z.string().max(100).optional(),
   parentPhone: z

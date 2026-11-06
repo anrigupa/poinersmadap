@@ -1,3 +1,7 @@
+import { AvailableClass } from "@/lib/constants/classes";
+
+export type { AvailableClass };
+
 export type StudentStatus =
   | "active"
   | "sp1"
@@ -5,14 +9,6 @@ export type StudentStatus =
   | "sp3"
   | "suspended"
   | "expelled";
-
-export type StudentMajor =
-  | "MIPA"
-  | "IPS"
-  | "Bahasa"
-  | "RPL"
-  | "TKJ"
-  | "Umum";
 
 export type StudentGender = "L" | "P";
 
@@ -23,8 +19,7 @@ export interface StudentItem {
   nis: string; // Nomor Induk Siswa internal
   fullName: string;
   email: string;
-  className: string; // e.g. "X MIPA 1", "XI MIPA 2", "XII IPS 1"
-  major: StudentMajor;
+  className: string; // e.g. "X.A", "XI.F", "XII.I"
   gender: StudentGender;
   totalViolationPoints: number; // Poin akumulasi pelanggaran
   totalMeritPoints: number; // Poin akumulasi penghargaan/prestasi
@@ -38,7 +33,6 @@ export interface StudentItem {
 export interface StudentFilter {
   search?: string;
   className?: string;
-  major?: string;
   status?: string;
   pointCategory?: "all" | "safe" | "warning" | "danger";
   page?: number;
@@ -67,4 +61,10 @@ export interface StudentSummaryStats {
   safeCount: number; // < 30 points
   warningCount: number; // 30 - 74 points
   dangerCount: number; // >= 75 points
+}
+
+export interface SiswaTertibStats {
+  totalSiswaTertib: number;
+  totalActiveStudents: number;
+  percentage: number;
 }

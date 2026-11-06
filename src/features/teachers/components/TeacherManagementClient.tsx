@@ -17,6 +17,7 @@ import DeleteTeacherDialog from "@/features/teachers/components/DeleteTeacherDia
 import PaginationControls from "@/features/rules/components/PaginationControls";
 import {
   TeacherItem,
+  TeacherType,
   PaginatedResult,
 } from "@/features/teachers/types";
 import { getTeachersAction } from "@/features/teachers/actions";
@@ -32,6 +33,7 @@ export default function TeacherManagementClient({
 
   const [teachersResult, setTeachersResult] = useState<PaginatedResult<TeacherItem>>(initialTeachers);
   const [searchTerm, setSearchTerm] = useState("");
+  const [teacherTypeFilter, setTeacherTypeFilter] = useState<TeacherType | "all">("all");
   const [specializationFilter, setSpecializationFilter] = useState("all");
   const [sortBy, setSortBy] = useState<"nip" | "fullName" | "email">("fullName");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
@@ -59,6 +61,7 @@ export default function TeacherManagementClient({
     startTransition(async () => {
       const res = await getTeachersAction({
         search: searchTerm,
+        teacher_type: teacherTypeFilter === "all" ? undefined : teacherTypeFilter,
         specialization: specializationFilter === "all" ? undefined : specializationFilter,
         page: currentPage,
         pageSize,
@@ -72,7 +75,7 @@ export default function TeacherManagementClient({
   useEffect(() => {
     reloadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, specializationFilter, sortBy, sortOrder, currentPage, pageSize]);
+  }, [searchTerm, teacherTypeFilter, specializationFilter, sortBy, sortOrder, currentPage, pageSize]);
 
   // Modal Triggers
   const handleOpenAddTeacher = () => {
@@ -96,7 +99,7 @@ export default function TeacherManagementClient({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Toast Feedback */}
       {toastMessage && (
         <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold rounded-2xl flex items-center justify-between shadow-xs animate-in fade-in slide-in-from-top-2">
@@ -159,9 +162,25 @@ export default function TeacherManagementClient({
 
         {/* Dropdown Filters & Sorting */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Specialization Filter */}
+          {/* Teacher Type Filter */}
           <div className="flex items-center gap-1.5 text-xs text-slate-500">
             <Filter className="w-3.5 h-3.5 text-slate-400" />
+            <select
+              value={teacherTypeFilter}
+              onChange={(e) => {
+                setTeacherTypeFilter(e.target.value as TeacherType | "all");
+                setCurrentPage(1);
+              }}
+              className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
+            >
+              <option value="all">Semua Jenis Guru</option>
+              <option value="teacher">Guru Mata Pelajaran (teacher)</option>
+              <option value="counselor">Guru BK (counselor)</option>
+            </select>
+          </div>
+
+          {/* Specialization Filter */}
+          <div className="flex items-center gap-1.5 text-xs text-slate-500">
             <select
               value={specializationFilter}
               onChange={(e) => {

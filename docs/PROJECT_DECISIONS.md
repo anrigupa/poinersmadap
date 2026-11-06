@@ -142,4 +142,94 @@ This document records the critical architectural, technological, database, secur
 
 ---
 
+### ADR-011: Unified Student Discipline Card & Standalone History Menu Removal
+- **Status:** Accepted
+- **Context:** The Student Portal previously included a standalone "Riwayat Pelanggaran" sidebar menu item leading to `/siswa/history`, duplicating the violation timeline already displayed directly inside the Discipline Card view on the main `/siswa` dashboard.
+- **Decision:** Remove "Riwayat Pelanggaran" from the Student Sidebar and Mobile Navigation, redirect `/siswa/history` to `/siswa`, and document the unified Discipline Card as the single source of truth for student infraction records.
+- **Rationale:**
+  - Eliminates navigation clutter and UX redundancy for students and parents.
+  - Keeps the Student Sidebar focused and balanced (`Kartu Disiplin`, `Prestasi & Pemutihan`, `Buku Saku Digital`).
+  - Automatically redirects legacy bookmarked URLs to `/siswa` without broken route errors.
+  - Preserves 100% of violation query logic, database schema, and point calculations intact.
+- **Consequences:** Violation history is accessed strictly through the embedded `StudentViolationHistoryList` component within `/siswa`.
+
+---
+
+### ADR-012: Restorative Discipline, Student Merits, and Point Reduction Audit Architecture
+- **Status:** Accepted
+- **Context:** SMAN 2 PANGKEP requires a restorative justice mechanism where student achievements (merits across 7 categories: Akademik, Ekstrakurikuler, Tahfidz, OSIS, Paskibra, Keagamaan, Sosial) can offset active disciplinary points without compromising administrative compliance, historical traceability, or legal sanction records.
+- **Decision:** Implement `/siswa/merits` with 5 standardized sections:
+  1. **Prestasi Saya**: Student achievement list with categories, merit points, and verification badges (`Pending`, `Approved`, `Rejected`).
+  2. **Saldo Prestasi**: Real-time balance showing Total Poin Prestasi, Poin Terpakai (Diputihkan), and Saldo Tersedia.
+  3. **Riwayat Pemutihan**: Immutable audit trail logging date, reason, original points, reduction amount, resulting points, and approver.
+  4. **Status Disiplin**: Deterministic formula $\text{Effective Discipline Points} = \max(0, \text{Total Violation Points} - \text{Total Reduction Points})$.
+  5. **Pengajuan Prestasi**: Student submission form with evidence attachment URL, defaulting to `Pending` and subject to Admin or Guru BK approval.
+- **Mandatory Integrity Invariants:**
+  - **Zero Violation Deletion**: Records in `public.student_violations` are never deleted under any circumstances; the violation ledger remains permanent.
+  - **Non-Negative Invariant**: Effective discipline points and available merit balances cannot be negative ($\ge 0$).
+  - **Traceable Ledger**: All point reductions require an explicit audit record in `counseling_records` / `merit_deductions`.
+- **Consequences:** Provides students with a positive rehabilitation path while maintaining full accountability for school leadership.
+
+---
+
+### ADR-013: Counselor (Guru BK) Module Architecture & Restorative Workflow
+- **Status:** Accepted
+- **Context:** The Counselor Portal at `/guru/counseling` requires full alignment with the restorative discipline system. It must grant operational governance over student merits, approval of point reductions (pemutihan), and tracking of students requiring intervention (`SP1`, `SP2`, `SP3`, `BK Monitoring`), with strict access isolation restricted to counselors (`teacher_type = counselor`).
+- **Decision:** Refactor `/guru/counseling` to utilize the existing Student Merit & Point Reduction architecture:
+  1. **Role Access Control**: Only authenticated teachers with `teacher_type = 'counselor'` (or Admin) can view counselor data; unauthorized staff receive an informative access restriction banner (`"Akses hanya dimiliki oleh Guru BK"`).
+  2. **Section 1 (Dashboard Konseling BK)**: Four summary KPI cards tracking Pending Achievements, Approved Merits, Approved Reductions, and Active Students in Coaching.
+  3. **Section 2 (Verifikasi Prestasi Siswa)**: Counselor review queue to inspect student evidence and approve (assigning merit points) or reject (with auditable reason) via `verifyAchievementAction()`.
+  4. **Section 3 (Pemutihan Poin)**: Interactive student selector with live before-and-after simulation (`Violation Points - Conversion = Resulting Points`) using `applyMeritReductionAction()`.
+  5. **Section 4 (Riwayat Pemutihan)**: Complete immutable audit log of all point reductions with original points, reduction amounts, remaining points, and approving counselor.
+  6. **Section 5 (Pembinaan Siswa)**: Intervention roster displaying students with `SP1`, `SP2`, `SP3`, and `BK Monitoring` with modal logging for counseling notes, follow-up actions, and recommendations via `recordCounselingSessionAction()`.
+- **Integrity Invariants:**
+  - Violation records in `student_violations` are immutable and never deleted.
+  - Poin reductions cannot exceed available merit balance or reduce points below zero.
+- **Consequences:** Seamless interoperability between student submissions and counselor governance.
+
+---
+
+### ADR-014: POINER SMADAP Global UI Design System & Accessibility Governance
+- **Status:** Accepted
+- **Context:** Previous modules exhibited slight visual fragmentation in typography weights, section labeling (technical prefixes such as `SECTION 1:`), statistics card hierarchies, table header contrast, and spacing systems. SMAN 2 PANGKEP requires an accessible, WCAG AA compliant, unified design system across all application portals (Admin, Guru, BK, and Siswa).
+- **Decision:** Implement a centralized design system token library in `src/lib/design-system.ts` and reusable primitives in `src/components/ui/` (`SectionHeader`, `StatCard`, `Badge`):
+  1. **Typography Standards**:
+     - Page Titles: `text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight`
+     - Section Titles: `text-base sm:text-lg font-semibold text-slate-800 tracking-tight`
+     - Section Descriptions: `text-xs sm:text-sm text-slate-500 mt-1 leading-normal`
+     - Metadata: `text-xs font-medium text-slate-600`
+  2. **Technical Label Deprecation**:
+     - Completely removed all technical/developer labels (`SECTION X:`, `MODULE X:`, `STEP X:`, `Langkah X:`).
+     - Standardized user-centric domain titles with supporting descriptions across all sections.
+  3. **Card Hierarchy Standards**:
+     - Statistics cards strictly follow the 3-step descending hierarchy: **Value** ($\text{3xl/4xl font-extrabold}$) $\rightarrow$ **Label** ($\text{text-sm font-semibold text-slate-800}$) $\rightarrow$ **Description** ($\text{text-xs text-slate-500}$).
+  4. **Data Tables & WCAG AA Contrast**:
+     - Standardized table headers to high-visibility `bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-700 uppercase tracking-wider`.
+     - Standardized badges to high-contrast emerald (success), amber (warning), red/rose (danger), and blue (info) with high-contrast text and border treatments.
+     - Prohibited low-contrast glassmorphism and washed-out text on bright backdrops.
+  5. **Spacing Governance**:
+     - $\ge 32\text{px}$ between sections (`space-y-8`), $\ge 16\text{px}$ between cards (`gap-4 sm:gap-6`), $8\text{px}$ between title and description, and $16\text{px}$ between section title and content.
+- **Consequences:** Provides a modern, accessible, professional school management system experience with 100% WCAG AA contrast compliance and cross-portal visual unity.
+
+---
+
+### ADR-015: Permanent Rule: Mandatory Reuse of Shared UI Components & Semantic Palettes
+- **Status:** Accepted
+- **Context:** To prevent future regressions and avoid fragmented page-specific color schemes across newly created or refactored pages, a permanent architectural rule is required.
+- **Decision:** Enforce mandatory reuse of shared UI primitives and ban page-specific color systems:
+  1. **Mandatory Shared Primitives**:
+     - `PageHeader` (`@/components/ui/PageHeader`): Reused for page titles, descriptions, icons, and actions.
+     - `SectionHeader` (`@/components/ui/SectionHeader`): Reused for every content section.
+     - `StatsCard` / `StatCard` (`@/components/ui/StatCard`): Reused for all KPI/summary metrics.
+     - `Badge` (`@/components/ui/Badge`): Reused for all status, audit, and category indicators.
+     - `tables` tokens (`@/lib/design-system`): Reused for all tabular presentations.
+  2. **Strict Semantic Color Policy**:
+     - Prohibit arbitrary page-specific palettes (e.g. custom pink, purple, violet, teal, neon gradients) unless explicitly required.
+     - All UI states are constrained to 5 approved semantic families: Success (`emerald`), Warning (`amber`), Danger (`rose`/`red`), Info (`blue`), and Neutral (`slate`).
+  3. **Agent Rule & Graph Persistence**:
+     - Enshrined in `.agents/rules/ui-design-system.md` and indexed in the knowledge graph.
+- **Consequences:** All future modules will automatically maintain 100% aesthetic harmony and WCAG AA contrast compliance with zero fragmentation.
+
+---
+
 *Authored and verified for the SMADAP POINER Engineering Knowledge Base.*

@@ -1,6 +1,6 @@
 "use client";
 
-import { Menu, Bell, Search } from "lucide-react";
+import { Menu } from "lucide-react";
 import Breadcrumbs from "@/components/layout/Breadcrumbs";
 import UserMenu from "@/components/layout/UserMenu";
 import { UserProfile } from "@/types/auth";
@@ -29,30 +29,8 @@ export default function Navbar({ user, onOpenMobileMenu }: NavbarProps) {
         </div>
       </div>
 
-      {/* Right: Search Hint, Notifications, User Menu */}
-      <div className="flex items-center gap-2 sm:gap-3">
-        {/* Quick Search Shortcut Indicator */}
-        <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100/80 border border-slate-200 text-slate-400 text-xs">
-          <Search className="w-3.5 h-3.5" />
-          <span>Cari data siswa, NIP, atau aturan...</span>
-          <kbd className="px-1.5 py-0.5 rounded bg-white text-[10px] font-mono border border-slate-200 text-slate-500 shadow-2xs">
-            ⌘K
-          </kbd>
-        </div>
-
-        {/* Notification Bell */}
-        <button
-          type="button"
-          className="relative p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
-          aria-label="Pemberitahuan sistem"
-        >
-          <Bell className="w-4 h-4" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-blue-600 ring-2 ring-white" />
-        </button>
-
-        <div className="w-px h-6 bg-slate-200 mx-1 hidden sm:block" />
-
-        {/* User Profile Dropdown */}
+      {/* Right Side: User Avatar, Teacher Name, Teacher Role, User Menu Dropdown */}
+      <div className="flex items-center">
         <UserMenu user={user} />
       </div>
     </header>

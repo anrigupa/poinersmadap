@@ -11,7 +11,7 @@ export interface StudentProfileSummary {
   nis: string;
   email: string;
   className: string;
-  major: string;
+  major?: string;
   gender: "L" | "P";
   parentName?: string | null;
   parentPhone?: string | null;

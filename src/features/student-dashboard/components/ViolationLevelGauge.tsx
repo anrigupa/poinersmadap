@@ -42,29 +42,29 @@ export default function ViolationLevelGauge({ points }: ViolationLevelGaugeProps
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="p-1.5 rounded-lg bg-blue-50 text-blue-600">
+            <span className="p-1.5 rounded-lg bg-blue-50 text-blue-600 border border-blue-200">
               <ShieldAlert className="w-4 h-4" />
             </span>
-            <h3 className="text-sm font-bold text-slate-900 tracking-tight">
-              Tingkat Status Kedisiplinan & Batas Sanksi
+            <h3 className="text-base font-semibold text-slate-800 tracking-tight">
+              Tingkat Status Kedisiplinan &amp; Batas Sanksi
             </h3>
           </div>
-          <p className="text-xs text-slate-400 mt-0.5">
+          <p className="text-xs text-slate-500 mt-1">
             Indikator tingkat penindakan kedisiplinan resmi SMAN 2 PANGKEP
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-500 font-medium">Status Saat Ini:</span>
+          <span className="text-xs text-slate-600 font-medium">Status Saat Ini:</span>
           <span
-            className={`px-3 py-1 rounded-full text-xs font-extrabold border ${
+            className={`px-3 py-1 rounded-full text-xs font-bold border ${
               isAman
-                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                ? "bg-emerald-100 text-emerald-950 border-emerald-300"
                 : isSp1
-                ? "bg-amber-50 text-amber-700 border-amber-200"
+                ? "bg-amber-100 text-amber-950 border-amber-300"
                 : isSp2
-                ? "bg-orange-50 text-orange-700 border-orange-200"
-                : "bg-rose-50 text-rose-700 border-rose-200"
+                ? "bg-orange-100 text-orange-950 border-orange-300"
+                : "bg-rose-100 text-rose-950 border-rose-300"
             }`}
           >
             {points.currentLevel}
@@ -148,93 +148,93 @@ export default function ViolationLevelGauge({ points }: ViolationLevelGaugeProps
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2">
         {/* Tier 1: Aman */}
         <div
-          className={`p-3.5 rounded-2xl border transition ${
+          className={`p-4 rounded-2xl border transition ${
             isAman
-              ? "bg-emerald-50/80 border-emerald-300 ring-2 ring-emerald-400/20"
-              : "bg-slate-50/60 border-slate-200/80 opacity-70"
+              ? "bg-emerald-50 border-emerald-300 ring-2 ring-emerald-500/20 shadow-xs"
+              : "bg-slate-50 border-slate-200"
           }`}
         >
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-bold text-emerald-800">Aman</span>
-            <span className="text-[10px] font-mono text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className={`text-xs font-bold ${isAman ? "text-emerald-950" : "text-slate-800"}`}>Aman</span>
+            <span className={`text-[10px] font-mono px-2 py-0.5 rounded font-semibold ${isAman ? "bg-emerald-200 text-emerald-950" : "bg-slate-200 text-slate-700"}`}>
               0 - 35
             </span>
           </div>
-          <p className="text-[11px] text-slate-600 leading-relaxed">
+          <p className="text-xs text-slate-600 leading-relaxed">
             Kondisi tertib wajar. Tanggung jawab pembinaan:{" "}
-            <strong>Wali Kelas</strong>.
+            <strong className="text-slate-800 font-semibold">Wali Kelas</strong>.
           </p>
         </div>
 
         {/* Tier 2: SP1 */}
         <div
-          className={`p-3.5 rounded-2xl border transition ${
+          className={`p-4 rounded-2xl border transition ${
             isSp1
-              ? "bg-amber-50/80 border-amber-300 ring-2 ring-amber-400/20"
-              : "bg-slate-50/60 border-slate-200/80 opacity-70"
+              ? "bg-amber-50 border-amber-300 ring-2 ring-amber-500/20 shadow-xs"
+              : "bg-slate-50 border-slate-200"
           }`}
         >
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-bold text-amber-800">SP 1</span>
-            <span className="text-[10px] font-mono text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className={`text-xs font-bold ${isSp1 ? "text-amber-950" : "text-slate-800"}`}>SP 1</span>
+            <span className={`text-[10px] font-mono px-2 py-0.5 rounded font-semibold ${isSp1 ? "bg-amber-200 text-amber-950" : "bg-slate-200 text-slate-700"}`}>
               36 - 75
             </span>
           </div>
-          <p className="text-[11px] text-slate-600 leading-relaxed">
+          <p className="text-xs text-slate-600 leading-relaxed">
             Peringatan tertulis 1. Bimbingan bersama{" "}
-            <strong>Wali Kelas & Guru BK</strong>.
+            <strong className="text-slate-800 font-semibold">Wali Kelas &amp; Guru BK</strong>.
           </p>
         </div>
 
         {/* Tier 3: SP2 */}
         <div
-          className={`p-3.5 rounded-2xl border transition ${
+          className={`p-4 rounded-2xl border transition ${
             isSp2
-              ? "bg-orange-50/80 border-orange-300 ring-2 ring-orange-400/20"
-              : "bg-slate-50/60 border-slate-200/80 opacity-70"
+              ? "bg-orange-50 border-orange-300 ring-2 ring-orange-500/20 shadow-xs"
+              : "bg-slate-50 border-slate-200"
           }`}
         >
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-bold text-orange-800">SP 2</span>
-            <span className="text-[10px] font-mono text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className={`text-xs font-bold ${isSp2 ? "text-orange-950" : "text-slate-800"}`}>SP 2</span>
+            <span className={`text-[10px] font-mono px-2 py-0.5 rounded font-semibold ${isSp2 ? "bg-orange-200 text-orange-950" : "bg-slate-200 text-slate-700"}`}>
               76 - 150
             </span>
           </div>
-          <p className="text-[11px] text-slate-600 leading-relaxed">
+          <p className="text-xs text-slate-600 leading-relaxed">
             Peringatan tertulis 2. Pemanggilan Orang Tua oleh{" "}
-            <strong>Guru BK & Kesiswaan</strong>.
+            <strong className="text-slate-800 font-semibold">Guru BK &amp; Kesiswaan</strong>.
           </p>
         </div>
 
         {/* Tier 4: SP3 */}
         <div
-          className={`p-3.5 rounded-2xl border transition ${
+          className={`p-4 rounded-2xl border transition ${
             isSp3
-              ? "bg-rose-50/80 border-rose-300 ring-2 ring-rose-400/20"
-              : "bg-slate-50/60 border-slate-200/80 opacity-70"
+              ? "bg-rose-50 border-rose-300 ring-2 ring-rose-500/20 shadow-xs"
+              : "bg-slate-50 border-slate-200"
           }`}
         >
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-bold text-rose-800">SP 3</span>
-            <span className="text-[10px] font-mono text-rose-600 bg-rose-100 px-1.5 py-0.5 rounded">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className={`text-xs font-bold ${isSp3 ? "text-rose-950" : "text-slate-800"}`}>SP 3</span>
+            <span className={`text-[10px] font-mono px-2 py-0.5 rounded font-semibold ${isSp3 ? "bg-rose-200 text-rose-950" : "bg-slate-200 text-slate-700"}`}>
               151+
             </span>
           </div>
-          <p className="text-[11px] text-slate-600 leading-relaxed">
+          <p className="text-xs text-slate-600 leading-relaxed">
             Sidang sanksi berat / skorsing oleh{" "}
-            <strong>Kepala Sekolah</strong>.
+            <strong className="text-slate-800 font-semibold">Kepala Sekolah</strong>.
           </p>
         </div>
       </div>
 
       {/* Remaining Points Guidance Alert */}
-      <div className="p-4 bg-blue-50/50 border border-blue-200 rounded-2xl flex items-start gap-3">
-        <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-        <div className="text-xs text-blue-900 leading-relaxed">
+      <div className="p-4 bg-blue-50 border border-blue-200 rounded-2xl flex items-start gap-3">
+        <Info className="w-4 h-4 text-blue-700 shrink-0 mt-0.5" />
+        <div className="text-xs text-slate-800 leading-relaxed">
           {isAman ? (
             <span>
               Anda memiliki toleransi selisih{" "}
-              <strong className="font-bold text-blue-700">
+              <strong className="font-bold text-blue-800">
                 {points.pointsToNextLevel} poin
               </strong>{" "}
               lagi sebelum mencapai ambang batas Surat Peringatan Pertama (SP1: 36 Poin).
@@ -242,7 +242,7 @@ export default function ViolationLevelGauge({ points }: ViolationLevelGaugeProps
           ) : isSp1 ? (
             <span>
               Anda berjarak{" "}
-              <strong className="font-bold text-amber-700">
+              <strong className="font-bold text-amber-800">
                 {points.pointsToNextLevel} poin
               </strong>{" "}
               dari batas Surat Peringatan Kedua (SP2: 76 Poin). Ikuti program pembinaan sekolah untuk pemutihan poin.
@@ -250,7 +250,7 @@ export default function ViolationLevelGauge({ points }: ViolationLevelGaugeProps
           ) : isSp2 ? (
             <span>
               Peringatan kritis: Anda hanya berjarak{" "}
-              <strong className="font-bold text-rose-700">
+              <strong className="font-bold text-rose-800">
                 {points.pointsToNextLevel} poin
               </strong>{" "}
               dari batas SP3 Kepala Sekolah (151 Poin). Segera temui Guru BK.

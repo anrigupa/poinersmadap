@@ -6,10 +6,7 @@ import {
   User,
   LogOut,
   ChevronDown,
-  ShieldCheck,
   BookOpen,
-  KeyRound,
-  GraduationCap,
 } from "lucide-react";
 import { UserProfile } from "@/types/auth";
 import { signOutAction } from "@/features/auth/actions/authActions";
@@ -49,6 +46,21 @@ export default function UserMenu({ user }: UserMenuProps) {
     badge: "bg-slate-100 text-slate-700 border-slate-200",
   };
 
+  const roleDisplayLabel =
+    user.specialization === "guru_bk" || user.teacherType === "counselor"
+      ? "Guru BK"
+      : user.specialization === "wali_kelas"
+      ? `Wali Kelas ${user.className || ""}`.trim()
+      : user.specialization === "guru_piket"
+      ? "Guru Piket"
+      : user.role === "guru"
+      ? "Guru Pendidik"
+      : user.role === "admin"
+      ? "Administrator"
+      : user.role === "siswa"
+      ? "Siswa"
+      : user.role;
+
   return (
     <div className="relative" ref={menuRef}>
       <button
@@ -58,20 +70,22 @@ export default function UserMenu({ user }: UserMenuProps) {
         aria-expanded={isOpen}
       >
         {/* Avatar */}
-        <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold text-xs shadow-sm shadow-blue-500/20">
+        <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold text-xs shadow-sm shadow-blue-500/20 shrink-0">
           {initials}
         </div>
 
-        {/* User preview on desktop */}
-        <div className="hidden lg:flex flex-col text-left">
-          <span className="text-xs font-bold text-slate-900 leading-tight truncate max-w-[140px]">
+        {/* User preview on desktop and tablet */}
+        <div className="hidden sm:flex flex-col text-left min-w-0">
+          <span className="text-xs font-bold text-slate-900 leading-tight truncate max-w-[140px] sm:max-w-[180px]">
             {user.fullName}
           </span>
-          <span className="text-[11px] text-slate-400 capitalize">{user.role}</span>
+          <span className="text-[11px] text-slate-500 font-medium leading-tight truncate">
+            {roleDisplayLabel}
+          </span>
         </div>
 
         <ChevronDown
-          className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${
+          className={`w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200 ${
             isOpen ? "rotate-180" : ""
           }`}
         />
@@ -103,6 +117,16 @@ export default function UserMenu({ user }: UserMenuProps) {
 
           {/* Links */}
           <div className="py-1">
+            {user.role === "guru" && (
+              <Link
+                href="/guru/profile"
+                onClick={() => setIsOpen(false)}
+                className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition"
+              >
+                <User className="w-4 h-4 text-slate-400" />
+                <span>Profil Akun</span>
+              </Link>
+            )}
             <Link
               href="/rules"
               onClick={() => setIsOpen(false)}

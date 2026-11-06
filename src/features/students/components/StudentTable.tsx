@@ -35,10 +35,10 @@ export default function StudentTable({
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-slate-50/70 border-b border-slate-100 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-700 uppercase tracking-wider">
               <th className="py-3.5 px-4 sm:px-6">Nama Siswa & Kontak</th>
               <th className="py-3.5 px-4">NISN / NIS</th>
-              <th className="py-3.5 px-4">Kelas & Jurusan</th>
+              <th className="py-3.5 px-4">Kelas</th>
               <th className="py-3.5 px-4">Poin Pelanggaran</th>
               <th className="py-3.5 px-4">Poin Prestasi</th>
               <th className="py-3.5 px-4">Status</th>
@@ -109,14 +109,11 @@ export default function StudentTable({
                     </div>
                   </td>
 
-                  {/* Kelas & Jurusan */}
+                  {/* Kelas */}
                   <td className="py-3.5 px-4">
-                    <div className="font-semibold text-slate-800">
+                    <span className="inline-block px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-800 border border-slate-200">
                       {student.className}
-                    </div>
-                    <div className="inline-block mt-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100">
-                      Jurusan {student.major}
-                    </div>
+                    </span>
                   </td>
 
                   {/* Poin Pelanggaran */}

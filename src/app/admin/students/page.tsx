@@ -5,7 +5,7 @@ import StudentManagementClient from "@/features/students/components/StudentManag
 
 export const metadata = {
   title: "Manajemen Data Siswa - SMADAP POINER",
-  description: "Kelola data siswa, NISN, kelas, jurusan, pemantauan poin dan akun Supabase Auth",
+  description: "Kelola data siswa, NISN, kelas terstandar Kurikulum Merdeka, pemantauan poin dan akun Supabase Auth",
 };
 
 export default async function AdminStudentsPage() {

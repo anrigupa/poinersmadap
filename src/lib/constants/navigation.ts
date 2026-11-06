@@ -2,19 +2,16 @@ import {
   LayoutDashboard,
   Users,
   GraduationCap,
-  ShieldAlert,
   FileText,
-  History,
   Settings,
   BookOpen,
   Award,
-  PlusCircle,
   ClipboardList,
   MessageSquare,
-  BarChart3,
+  User,
   type LucideIcon,
 } from "lucide-react";
-import { UserRole } from "@/types/auth";
+import { UserRole, UserProfile } from "@/types/auth";
 
 export interface NavItem {
   title: string;
@@ -38,11 +35,6 @@ export const ROLE_NAVIGATION: Record<UserRole, NavSection[]> = {
           title: "Dashboard",
           href: "/admin",
           icon: LayoutDashboard,
-        },
-        {
-          title: "Analitik Kedisiplinan",
-          href: "/admin/analytics",
-          icon: BarChart3,
         },
       ],
     },
@@ -77,11 +69,6 @@ export const ROLE_NAVIGATION: Record<UserRole, NavSection[]> = {
           badgeColor: "bg-rose-100 text-rose-700",
         },
         {
-          title: "Log Audit Sistem",
-          href: "/admin/audit-logs",
-          icon: History,
-        },
-        {
           title: "Pengaturan Sistem",
           href: "/admin/settings",
           icon: Settings,
@@ -94,16 +81,14 @@ export const ROLE_NAVIGATION: Record<UserRole, NavSection[]> = {
       sectionTitle: "Menu Utama",
       items: [
         {
-          title: "Beranda Guru",
+          title: "Dashboard",
           href: "/guru",
           icon: LayoutDashboard,
         },
         {
-          title: "Input Pelanggaran",
-          href: "/guru/report",
-          icon: PlusCircle,
-          badge: "Cepat",
-          badgeColor: "bg-blue-100 text-blue-700",
+          title: "Riwayat Laporan",
+          href: "/guru/history",
+          icon: ClipboardList,
         },
       ],
     },
@@ -111,25 +96,25 @@ export const ROLE_NAVIGATION: Record<UserRole, NavSection[]> = {
       sectionTitle: "Bimbingan & Pengawasan",
       items: [
         {
-          title: "Kelas Binaan (Wali Kelas)",
+          title: "Kelas Binaan",
           href: "/guru/classes",
           icon: GraduationCap,
         },
         {
-          title: "Konseling & Pembinaan (BK)",
+          title: "Konseling & Pembinaan",
           href: "/guru/counseling",
           icon: MessageSquare,
-        },
-        {
-          title: "Riwayat Laporan Anda",
-          href: "/guru/history",
-          icon: ClipboardList,
         },
       ],
     },
     {
-      sectionTitle: "Referensi",
+      sectionTitle: "Akun & Referensi",
       items: [
+        {
+          title: "Profil",
+          href: "/guru/profile",
+          icon: User,
+        },
         {
           title: "Buku Saku Tata Tertib",
           href: "/rules",
@@ -146,11 +131,6 @@ export const ROLE_NAVIGATION: Record<UserRole, NavSection[]> = {
           title: "Kartu Disiplin",
           href: "/siswa",
           icon: LayoutDashboard,
-        },
-        {
-          title: "Riwayat Pelanggaran",
-          href: "/siswa/history",
-          icon: ShieldAlert,
         },
       ],
     },
@@ -178,21 +158,131 @@ export const MOBILE_BOTTOM_NAV: Record<UserRole, NavItem[]> = {
   admin: [
     { title: "Beranda", href: "/admin", icon: LayoutDashboard },
     { title: "Siswa", href: "/admin/students", icon: GraduationCap },
-    { title: "Sanksi", href: "/admin/sanctions", icon: FileText },
+    { title: "Guru", href: "/admin/teachers", icon: Users },
     { title: "Aturan", href: "/admin/rules", icon: BookOpen },
-    { title: "Audit", href: "/admin/audit-logs", icon: History },
   ],
   guru: [
-    { title: "Beranda", href: "/guru", icon: LayoutDashboard },
-    { title: "Input", href: "/guru/report", icon: PlusCircle },
-    { title: "Binaan", href: "/guru/classes", icon: GraduationCap },
-    { title: "Konseling", href: "/guru/counseling", icon: MessageSquare },
-    { title: "Aturan", href: "/rules", icon: BookOpen },
+    { title: "Dashboard", href: "/guru", icon: LayoutDashboard },
+    { title: "Riwayat", href: "/guru/history", icon: ClipboardList },
+    { title: "Profil", href: "/guru/profile", icon: User },
   ],
   siswa: [
-    { title: "Kartu", href: "/siswa", icon: LayoutDashboard },
-    { title: "Riwayat", href: "/siswa/history", icon: ShieldAlert },
+    { title: "Kartu Disiplin", href: "/siswa", icon: LayoutDashboard },
     { title: "Prestasi", href: "/siswa/merits", icon: Award },
     { title: "Buku Saku", href: "/rules", icon: BookOpen },
   ],
 };
+
+/**
+ * Dynamic role-aware navigation generator for teachers.
+ * Tailors sidebar sections according to whether teacher is regular,
+ * homeroom (wali kelas), or counselor (guru BK).
+ */
+export function getTeacherNavigation(user?: UserProfile): NavSection[] {
+  const isCounselor =
+    user?.teacherType === "counselor" ||
+    user?.specialization === "guru_bk" ||
+    user?.role === "admin";
+
+  const isHomeroom =
+    Boolean(user?.assignedClass && user.assignedClass.trim() !== "" && user.assignedClass !== "null") ||
+    Boolean(user?.className && user.className.toLowerCase().includes("wali")) ||
+    user?.specialization === "wali_kelas" ||
+    user?.role === "admin";
+
+  const mainItems: NavItem[] = [
+    {
+      title: "Dashboard",
+      href: "/guru",
+      icon: LayoutDashboard,
+    },
+    {
+      title: "Riwayat Laporan",
+      href: "/guru/history",
+      icon: ClipboardList,
+    },
+  ];
+
+  const guidanceItems: NavItem[] = [];
+  if (isHomeroom) {
+    guidanceItems.push({
+      title: "Kelas Binaan",
+      href: "/guru/classes",
+      icon: GraduationCap,
+    });
+  }
+  if (isCounselor) {
+    guidanceItems.push({
+      title: "Konseling & Pembinaan",
+      href: "/guru/counseling",
+      icon: MessageSquare,
+    });
+  }
+
+  const accountItems: NavItem[] = [
+    {
+      title: "Profil",
+      href: "/guru/profile",
+      icon: User,
+    },
+    {
+      title: "Buku Saku Tata Tertib",
+      href: "/rules",
+      icon: BookOpen,
+    },
+  ];
+
+  const sections: NavSection[] = [
+    {
+      sectionTitle: "Menu Utama",
+      items: mainItems,
+    },
+  ];
+
+  if (guidanceItems.length > 0) {
+    sections.push({
+      sectionTitle: "Bimbingan & Pengawasan",
+      items: guidanceItems,
+    });
+  }
+
+  sections.push({
+    sectionTitle: "Akun & Referensi",
+    items: accountItems,
+  });
+
+  return sections;
+}
+
+/**
+ * Dynamic role-aware bottom navigation generator for mobile devices.
+ * Synchronizes mobile navigation with desktop sidebar.
+ */
+export function getTeacherMobileNavigation(user?: UserProfile): NavItem[] {
+  const isCounselor =
+    user?.teacherType === "counselor" ||
+    user?.specialization === "guru_bk" ||
+    user?.role === "admin";
+
+  const isHomeroom =
+    Boolean(user?.assignedClass && user.assignedClass.trim() !== "" && user.assignedClass !== "null") ||
+    Boolean(user?.className && user.className.toLowerCase().includes("wali")) ||
+    user?.specialization === "wali_kelas" ||
+    user?.role === "admin";
+
+  const items: NavItem[] = [
+    { title: "Dashboard", href: "/guru", icon: LayoutDashboard },
+  ];
+
+  if (isHomeroom) {
+    items.push({ title: "Binaan", href: "/guru/classes", icon: GraduationCap });
+  } else if (isCounselor) {
+    items.push({ title: "Konseling", href: "/guru/counseling", icon: MessageSquare });
+  }
+
+  items.push({ title: "Riwayat", href: "/guru/history", icon: ClipboardList });
+  items.push({ title: "Profil", href: "/guru/profile", icon: User });
+
+  return items;
+}
+

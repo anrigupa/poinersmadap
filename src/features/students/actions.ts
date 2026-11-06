@@ -11,6 +11,7 @@ import {
   PaginatedResult,
   ActionResponse,
   StudentSummaryStats,
+  SiswaTertibStats,
 } from "@/features/students/types";
 import {
   studentFormSchema,
@@ -38,8 +39,7 @@ let INITIAL_STUDENTS: StudentItem[] = [
     nis: "10293",
     fullName: "Muhammad Rizky Pratama",
     email: "siswa.10293@smadap.sch.id",
-    className: "XI MIPA 2",
-    major: "MIPA",
+    className: "XI.B",
     gender: "L",
     totalViolationPoints: 25,
     totalMeritPoints: 10,
@@ -55,8 +55,7 @@ let INITIAL_STUDENTS: StudentItem[] = [
     nis: "10294",
     fullName: "Aditya Pratama Putra",
     email: "aditya.10294@smadap.sch.id",
-    className: "XII IPS 1",
-    major: "IPS",
+    className: "XII.D",
     gender: "L",
     totalViolationPoints: 45,
     totalMeritPoints: 0,
@@ -72,8 +71,7 @@ let INITIAL_STUDENTS: StudentItem[] = [
     nis: "10295",
     fullName: "Siti Nurhaliza",
     email: "siti.10295@smadap.sch.id",
-    className: "X MIPA 1",
-    major: "MIPA",
+    className: "X.A",
     gender: "P",
     totalViolationPoints: 0,
     totalMeritPoints: 35,
@@ -89,8 +87,7 @@ let INITIAL_STUDENTS: StudentItem[] = [
     nis: "10296",
     fullName: "Fajar Maulana",
     email: "fajar.10296@smadap.sch.id",
-    className: "XII IPS 2",
-    major: "IPS",
+    className: "XII.E",
     gender: "L",
     totalViolationPoints: 85,
     totalMeritPoints: 5,
@@ -106,8 +103,7 @@ let INITIAL_STUDENTS: StudentItem[] = [
     nis: "10297",
     fullName: "Rina Maharani",
     email: "rina.10297@smadap.sch.id",
-    className: "XI MIPA 1",
-    major: "MIPA",
+    className: "XI.A",
     gender: "P",
     totalViolationPoints: 15,
     totalMeritPoints: 20,
@@ -123,8 +119,7 @@ let INITIAL_STUDENTS: StudentItem[] = [
     nis: "10298",
     fullName: "Bagus Prasetyo",
     email: "bagus.10298@smadap.sch.id",
-    className: "X RPL 1",
-    major: "RPL",
+    className: "X.B",
     gender: "L",
     totalViolationPoints: 10,
     totalMeritPoints: 50,
@@ -140,8 +135,7 @@ let INITIAL_STUDENTS: StudentItem[] = [
     nis: "10299",
     fullName: "Putri Anggraini",
     email: "putri.10299@smadap.sch.id",
-    className: "XI Bahasa 1",
-    major: "Bahasa",
+    className: "XI.C",
     gender: "P",
     totalViolationPoints: 5,
     totalMeritPoints: 15,
@@ -157,8 +151,7 @@ let INITIAL_STUDENTS: StudentItem[] = [
     nis: "10300",
     fullName: "Rian Hidayat",
     email: "rian.10300@smadap.sch.id",
-    className: "XII MIPA 3",
-    major: "MIPA",
+    className: "XII.C",
     gender: "L",
     totalViolationPoints: 110,
     totalMeritPoints: 0,
@@ -174,8 +167,7 @@ let INITIAL_STUDENTS: StudentItem[] = [
     nis: "10301",
     fullName: "Dewi Anggita",
     email: "dewi.10301@smadap.sch.id",
-    className: "X MIPA 2",
-    major: "MIPA",
+    className: "X.C",
     gender: "P",
     totalViolationPoints: 0,
     totalMeritPoints: 25,
@@ -191,8 +183,7 @@ let INITIAL_STUDENTS: StudentItem[] = [
     nis: "10302",
     fullName: "Dimas Arya Pangestu",
     email: "dimas.10302@smadap.sch.id",
-    className: "XI IPS 2",
-    major: "IPS",
+    className: "XI.D",
     gender: "L",
     totalViolationPoints: 35,
     totalMeritPoints: 5,
@@ -250,6 +241,57 @@ export async function getStudentSummaryAction(): Promise<StudentSummaryStats> {
 }
 
 // -------------------------------------------------------------
+// GET SISWA TERTIB STATS (ACTIVE STUDENTS WITH VIOLATION POINTS < 50)
+// -------------------------------------------------------------
+
+export async function getSiswaTertibStatsAction(): Promise<SiswaTertibStats> {
+  if (isSupabaseLive()) {
+    try {
+      const supabase = process.env.SUPABASE_SERVICE_ROLE_KEY ? createAdminClient() : await createClient();
+      const { data, error } = await supabase
+        .from("students")
+        .select("total_violation_points, status")
+        .eq("status", "active");
+
+      if (!error && data) {
+        const totalActiveStudents = data.length;
+        const totalSiswaTertib = data.filter(
+          (s) => Number(s.total_violation_points ?? 0) < 50
+        ).length;
+        const percentage =
+          totalActiveStudents > 0
+            ? Math.round((totalSiswaTertib / totalActiveStudents) * 100)
+            : 100;
+
+        return {
+          totalSiswaTertib,
+          totalActiveStudents,
+          percentage,
+        };
+      }
+    } catch (err) {
+      console.warn("Supabase Siswa Tertib stats fetch fallback:", err);
+    }
+  }
+
+  const activeStudents = INITIAL_STUDENTS.filter((s) => s.status === "active");
+  const totalActiveStudents = activeStudents.length;
+  const totalSiswaTertib = activeStudents.filter(
+    (s) => Number(s.totalViolationPoints ?? 0) < 50
+  ).length;
+  const percentage =
+    totalActiveStudents > 0
+      ? Math.round((totalSiswaTertib / totalActiveStudents) * 100)
+      : 100;
+
+  return {
+    totalSiswaTertib,
+    totalActiveStudents,
+    percentage,
+  };
+}
+
+// -------------------------------------------------------------
 // GET STUDENTS (PAGINATED & FILTERED)
 // -------------------------------------------------------------
 
@@ -259,7 +301,6 @@ export async function getStudentsAction(
   const {
     search = "",
     className,
-    major,
     status,
     pointCategory,
     page = 1,
@@ -321,15 +362,6 @@ export async function getStudentsAction(
             ? item.profiles[0]
             : item.profiles;
 
-          // Determine major from class_name if not explicit
-          let derivedMajor: StudentItem["major"] = "Umum";
-          if (item.class_name.includes("MIPA") || item.class_name.includes("IPA"))
-            derivedMajor = "MIPA";
-          else if (item.class_name.includes("IPS")) derivedMajor = "IPS";
-          else if (item.class_name.includes("Bahasa")) derivedMajor = "Bahasa";
-          else if (item.class_name.includes("RPL")) derivedMajor = "RPL";
-          else if (item.class_name.includes("TKJ")) derivedMajor = "TKJ";
-
           return {
             id: item.id,
             profileId: item.profile_id,
@@ -338,7 +370,6 @@ export async function getStudentsAction(
             fullName: profile?.full_name || "Siswa SMADAP",
             email: profile?.email || `${item.nis}@smadap.sch.id`,
             className: item.class_name,
-            major: derivedMajor,
             gender: item.gender as "L" | "P",
             totalViolationPoints: item.total_violation_points || 0,
             totalMeritPoints: item.total_merit_points || 0,
@@ -361,10 +392,6 @@ export async function getStudentsAction(
               st.nis.includes(s) ||
               st.className.toLowerCase().includes(s)
           );
-        }
-
-        if (major && major !== "all") {
-          finalItems = finalItems.filter((st) => st.major === major);
         }
 
         if (pointCategory && pointCategory !== "all") {
@@ -414,10 +441,6 @@ export async function getStudentsAction(
 
   if (className && className !== "all") {
     filtered = filtered.filter((st) => st.className === className);
-  }
-
-  if (major && major !== "all") {
-    filtered = filtered.filter((st) => st.major === major);
   }
 
   if (status && status !== "all") {
@@ -596,7 +619,6 @@ export async function addStudentAction(
           fullName: data.fullName,
           email: data.email,
           className: data.className,
-          major: data.major,
           gender: data.gender,
           totalViolationPoints: 0,
           totalMeritPoints: 0,
@@ -634,7 +656,6 @@ export async function addStudentAction(
     fullName: data.fullName,
     email: data.email,
     className: data.className,
-    major: data.major,
     gender: data.gender,
     totalViolationPoints: 0,
     totalMeritPoints: 0,
@@ -734,7 +755,6 @@ export async function editStudentAction(
         fullName: data.fullName,
         email: data.email,
         className: data.className,
-        major: data.major,
         gender: data.gender,
         totalViolationPoints: updated?.total_violation_points || 0,
         totalMeritPoints: updated?.total_merit_points || 0,
@@ -777,7 +797,6 @@ export async function editStudentAction(
     fullName: data.fullName,
     email: data.email,
     className: data.className,
-    major: data.major,
     gender: data.gender,
     parentName: data.parentName || null,
     parentPhone: data.parentPhone || null,
@@ -923,6 +942,7 @@ export async function applyStudentViolationPoints(
   revalidatePath("/admin/students");
   revalidatePath("/guru");
   revalidatePath("/siswa");
+  revalidatePath("/");
 
   return {
     previousPoints,

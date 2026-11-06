@@ -1,12 +1,38 @@
-import { UserProfile, UserRole } from "@/types/auth";
+import { UserProfile, UserRole, normalizeRole } from "@/types/auth";
+
+export { normalizeRole };
 
 export const AUTH_COOKIE_NAME = "poiner_auth_session";
 
-export const ROLE_REDIRECT_MAP: Record<UserRole, string> = {
+/**
+ * Role to Route Redirection Map supporting both canonical ('guru', 'siswa', 'admin')
+ * and database alias ('teacher', 'student') identifiers.
+ */
+export const ROLE_REDIRECT_MAP: Record<string, string> = {
   admin: "/admin",
   guru: "/guru",
+  teacher: "/guru",
   siswa: "/siswa",
+  student: "/siswa",
 };
+
+/**
+ * Defensive redirect resolver: ensures a safe destination is ALWAYS returned.
+ * Prevents any generation of `/undefined` routes when unexpected roles or states occur.
+ */
+export function getRoleRedirectPath(rawRole: unknown): string {
+  const normalized = normalizeRole(rawRole);
+  const target =
+    ROLE_REDIRECT_MAP[normalized] ||
+    ROLE_REDIRECT_MAP[String(rawRole).toLowerCase().trim()];
+
+  if (!target) {
+    console.warn(`[getRoleRedirectPath] Unmapped role '${rawRole}'. Defaulting safely to '/login'.`);
+    return "/login";
+  }
+
+  return target;
+}
 
 export const ROLE_LABELS: Record<UserRole, { title: string; subtitle: string; badge: string }> = {
   admin: {
@@ -44,11 +70,14 @@ export const DEMO_ACCOUNTS: Record<UserRole, { profile: UserProfile; passwordHin
   guru: {
     profile: {
       id: "usr-guru-01",
+      teacherId: "c8b716f0-4504-46bf-aef8-b2cb00691c5d",
       email: "guru.bk@smadap.sch.id",
       fullName: "Siti Rahmawati, S.Pd (Guru BK)",
       role: "guru",
       nip: "198504122010012003",
+      teacherType: "counselor",
       specialization: "guru_bk",
+      assignedClass: "Wali Kelas XI MIPA 2",
       className: "Wali Kelas XI MIPA 2",
     },
     passwordHint: "guru123",
