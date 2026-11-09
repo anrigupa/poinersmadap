@@ -29,6 +29,7 @@ import {
   Check,
   Info,
   LayoutDashboard,
+  Mail,
 } from "lucide-react";
 import {
   CounselorDashboardData,
@@ -46,6 +47,8 @@ import {
   CounselorReductionItem,
 } from "@/features/student-merits/actions";
 import { AchievementCategory } from "@/features/student-merits/types";
+import SuratPanggilanModal from "@/features/counseling/components/SuratPanggilanModal";
+import StudentSelector from "@/components/ui/StudentSelector";
 
 interface CounselorDashboardClientProps {
   initialData: CounselorDashboardData;
@@ -109,6 +112,10 @@ export default function CounselorDashboardClient({
   const [followUpActions, setFollowUpActions] = useState("");
   const [recommendations, setRecommendations] = useState("");
   const [isSubmittingCoaching, startCoachingTransition] = useTransition();
+
+  // Section: Surat Panggilan Modal state
+  const [isCallLetterModalOpen, setIsCallLetterModalOpen] = useState(false);
+  const [selectedCallStudent, setSelectedCallStudent] = useState<CoachingStudentItem | CounselorStudentOption | null>(null);
 
   // Refresh entire dashboard action
   const refreshData = () => {
@@ -206,6 +213,12 @@ export default function CounselorDashboardClient({
     setFollowUpActions("");
     setRecommendations("");
     setIsCoachingModalOpen(true);
+  };
+
+  // Handle Open Surat Panggilan Modal
+  const handleOpenCallLetterModal = (student: CoachingStudentItem | CounselorStudentOption) => {
+    setSelectedCallStudent(student);
+    setIsCallLetterModalOpen(true);
   };
 
   const handleSubmitCoaching = (e: React.FormEvent) => {
@@ -758,19 +771,15 @@ export default function CounselorDashboardClient({
             <div className="lg:col-span-5 space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-800 mb-1.5">
-                  Pilih Peserta Didik <span className="text-rose-600">*</span>
+                  Cari Peserta Didik <span className="text-rose-600">*</span>
                 </label>
-                <select
+                <StudentSelector
+                  students={availableStudents}
                   value={selectedStudentId}
-                  onChange={(e) => setSelectedStudentId(e.target.value)}
-                  className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 bg-white font-semibold text-slate-900"
-                >
-                  {availableStudents.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.fullName} ({s.className}) — Disiplin: {s.effectivePoints} | Prestasi: {s.availableMerits}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(studentId) => setSelectedStudentId(studentId)}
+                  placeholder="Pilih peserta didik..."
+                  searchPlaceholder="Cari nama siswa, NIS, NISN, atau kelas..."
+                />
               </div>
 
               {selectedStudent && (
@@ -789,23 +798,29 @@ export default function CounselorDashboardClient({
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
                     <div className="bg-white p-2.5 rounded-xl border border-slate-300">
-                      <div className="text-xs text-slate-600 font-bold">Total Pelanggaran</div>
+                      <div className="text-[11px] text-slate-600 font-bold">Total Pelanggaran</div>
                       <div className="text-lg font-black text-slate-900 font-mono mt-0.5">
                         {selectedStudent.totalViolationPoints}
                       </div>
                     </div>
                     <div className="bg-white p-2.5 rounded-xl border border-slate-300">
-                      <div className="text-xs text-slate-600 font-bold">Total Prestasi</div>
+                      <div className="text-[11px] text-slate-600 font-bold">Total Prestasi</div>
                       <div className="text-lg font-black text-blue-700 font-mono mt-0.5">
                         {selectedStudent.totalMeritPoints}
                       </div>
                     </div>
                     <div className="bg-emerald-50 p-2.5 rounded-xl border border-emerald-300">
-                      <div className="text-xs text-emerald-900 font-black">Saldo Tersedia</div>
+                      <div className="text-[11px] text-emerald-900 font-black">Saldo Prestasi</div>
                       <div className="text-lg font-black text-emerald-700 font-mono mt-0.5">
                         {selectedStudent.availableMerits}
+                      </div>
+                    </div>
+                    <div className="bg-amber-50 p-2.5 rounded-xl border border-amber-300">
+                      <div className="text-[11px] text-amber-950 font-black">Poin Efektif</div>
+                      <div className="text-lg font-black text-amber-900 font-mono mt-0.5">
+                        {selectedStudent.effectivePoints}
                       </div>
                     </div>
                   </div>
@@ -1114,11 +1129,11 @@ export default function CounselorDashboardClient({
 
                       <td className="py-3.5 px-4 text-right whitespace-nowrap">
                         <button
-                          onClick={() => handleOpenCoachingModal(s.id)}
-                          className="px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-900 font-bold text-xs transition inline-flex items-center gap-1 border border-blue-200"
+                          onClick={() => handleOpenCallLetterModal(s)}
+                          className="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-950 font-bold text-xs transition inline-flex items-center gap-1.5 border border-amber-300"
                         >
-                          <PlusCircle className="w-3.5 h-3.5 text-blue-700" />
-                          <span>Bimbingan</span>
+                          <Mail className="w-3.5 h-3.5 text-amber-800" />
+                          <span>Surat Panggilan</span>
                         </button>
                       </td>
                     </tr>
@@ -1251,19 +1266,15 @@ export default function CounselorDashboardClient({
             <form onSubmit={handleSubmitCoaching} className="space-y-3.5 text-xs">
               <div>
                 <label className="block font-bold text-slate-800 mb-1">
-                  Pilih Siswa <span className="text-rose-600">*</span>
+                  Cari Peserta Didik <span className="text-rose-600">*</span>
                 </label>
-                <select
+                <StudentSelector
+                  students={availableStudents}
                   value={coachingTargetStudentId}
-                  onChange={(e) => setCoachingTargetStudentId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 font-semibold"
-                >
-                  {availableStudents.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.fullName} ({s.className}) — Status: {s.status} (Poin: {s.effectivePoints})
-                    </option>
-                  ))}
-                </select>
+                  onChange={(studentId) => setCoachingTargetStudentId(studentId)}
+                  placeholder="Pilih peserta didik..."
+                  searchPlaceholder="Cari nama siswa, NIS, NISN, atau kelas..."
+                />
               </div>
 
               <div>
@@ -1342,6 +1353,22 @@ export default function CounselorDashboardClient({
           </div>
         </div>
       )}
+
+      {/* ==================================================================== */}
+      {/* MODAL: SURAT PANGGILAN ORANG TUA / WALI */}
+      {/* ==================================================================== */}
+      <SuratPanggilanModal
+        isOpen={isCallLetterModalOpen}
+        onClose={() => {
+          setIsCallLetterModalOpen(false);
+          setSelectedCallStudent(null);
+        }}
+        student={selectedCallStudent}
+        counselorName={access.teacher?.fullName || "Guru BK"}
+        onSuccess={(msg) => {
+          setBanner({ type: "success", message: msg });
+        }}
+      />
     </div>
   );
 }

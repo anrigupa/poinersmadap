@@ -13,6 +13,7 @@ const ROUTE_LABELS: Record<string, string> = {
   students: "Data Siswa",
   teachers: "Data Guru",
   rules: "Buku Saku Tata Tertib",
+  letters: "Surat Panggilan (SP)",
   sanctions: "Surat Panggilan (SP)",
   settings: "Pengaturan",
   report: "Input Pelanggaran",

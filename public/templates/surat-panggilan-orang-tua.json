@@ -1,0 +1,64 @@
+{
+  "id": "surat-panggilan-orang-tua",
+  "title": "Surat Panggilan Orang Tua / Wali",
+  "category": "counseling",
+  "version": "1.0.0",
+  "header": {
+    "governmentAgency": "{{header_gov_agency}}",
+    "educationDepartment": "{{header_edu_dept}}",
+    "institutionName": "{{header_institution_name}}",
+    "addressLine": "{{header_address}}",
+    "contactLine": "{{header_contact}}",
+    "leftEmblemPlaceholder": "SMADAP",
+    "rightEmblemPlaceholder": "PANGKEP"
+  },
+  "metadata": {
+    "referenceNumber": "{{letter_number}}",
+    "attachment": "-",
+    "subject": "{{letter_subject}}",
+    "dateLocation": "{{date_location}}"
+  },
+  "recipient": {
+    "salutation": "Kepada Yth.",
+    "addressee": "Bapak / Ibu Orang Tua / Wali dari {{student_name}}",
+    "location": "di Tempat"
+  },
+  "opening": [
+    "Dengan hormat,",
+    "Sehubungan dengan hasil evaluasi perkembangan perilaku, kedisiplinan, dan pelaksanaan tata tertib sekolah, dengan ini kami sampaikan catatan rekam disiplin peserta didik sebagai berikut:"
+  ],
+  "studentInfoSections": [
+    { "label": "Nama Siswa", "value": "{{student_name}}" },
+    { "label": "NISN / NIS", "value": "{{student_nisn}} / {{student_nis}}" },
+    { "label": "Kelas", "value": "{{student_class}}" },
+    { "label": "Total Pelanggaran", "value": "{{total_violations}} kasus tercatat" },
+    { "label": "Total Poin Pelanggaran", "value": "{{total_violation_points}} Poin" },
+    { "label": "Total Pemutihan Poin", "value": "-{{total_reduction_points}} Poin" },
+    { "label": "Poin Efektif Aktif", "value": "{{effective_points}} Poin (Status: {{discipline_status}})" }
+  ],
+  "invitationIntro": "Guna mewujudkan koordinasi yang harmonis antara pihak sekolah dan orang tua/wali demi pembinaan peserta didik yang bersangkutan, kami mengharapkan kehadiran Bapak/Ibu pada:",
+  "meetingSchedule": [
+    { "label": "Hari / Tanggal", "value": "{{scheduled_date_formatted}}" },
+    { "label": "Waktu Pertemuan", "value": "{{scheduled_time}} WITA" },
+    { "label": "Tempat Pertemuan", "value": "{{meeting_location}}" },
+    { "label": "Keperluan / Agenda", "value": "{{call_purpose}}" }
+  ],
+  "notesIntro": "Catatan Khusus:",
+  "notes": "{{additional_notes}}",
+  "closing": [
+    "Mengingat pentingnya agenda ini demi masa depan pendidikan dan pembentukan karakter peserta didik, kami sangat mengharapkan kehadiran Bapak/Ibu tepat pada waktu yang telah ditentukan.",
+    "Demikian surat panggilan ini kami sampaikan. Atas perhatian, pengertian, dan kerja sama yang baik, kami ucapkan terima kasih."
+  ],
+  "signatures": {
+    "left": {
+      "role": "Orang Tua / Wali Peserta Didik,",
+      "placeholderName": "( .................................................... )",
+      "caption": "Tanda Tangan & Nama Terang"
+    },
+    "right": {
+      "role": "Guru Bimbingan Konseling (BK),",
+      "name": "{{counselor_name}}",
+      "identifier": "NIP. {{counselor_nip}}"
+    }
+  }
+}

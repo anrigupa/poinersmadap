@@ -1,10 +1,28 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { AUTH_COOKIE_NAME } from "@/lib/constants/auth";
+import { verifySessionCookie } from "@/lib/security/sessionToken";
 
-export async function createClient() {
+export interface CreateClientConfig {
+  isPersistent?: boolean;
+}
+
+export async function createClient(config?: CreateClientConfig) {
   const cookieStore = await cookies();
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder-project.supabase.co";
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder-anon-key";
+
+  // Determine persistence: explicitly provided (e.g. login), or derived from verified HMAC session cookie
+  let isPersistent = config?.isPersistent;
+  if (isPersistent === undefined) {
+    const sessionCookie = cookieStore.get(AUTH_COOKIE_NAME)?.value;
+    if (sessionCookie) {
+      const verifiedSession = await verifySessionCookie(sessionCookie);
+      isPersistent = verifiedSession?.rememberMe === true;
+    } else {
+      isPersistent = false;
+    }
+  }
 
   return createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
@@ -13,7 +31,14 @@ export async function createClient() {
       },
       set(name: string, value: string, options: CookieOptions) {
         try {
-          cookieStore.set({ name, value, ...options });
+          const finalOptions: CookieOptions = isPersistent
+            ? options
+            : {
+                ...options,
+                maxAge: undefined,
+                expires: undefined,
+              };
+          cookieStore.set({ name, value, ...finalOptions });
         } catch {
           // The `set` method was called from a Server Component.
           // Can be ignored if middleware is refreshing sessions.

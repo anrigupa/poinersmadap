@@ -15,7 +15,14 @@ export const addViolationSchema = z.object({
     .min(3, "Catatan kronologi kejadian minimal 3 karakter")
     .max(500, "Catatan kronologi kejadian maksimal 500 karakter"),
   incidentDate: z.string().min(1, "Tanggal dan waktu insiden harus diisi"),
-  evidenceUrl: z.string().optional(),
+  evidenceUrl: z
+    .string()
+    .max(500, "Tautan bukti maksimal 500 karakter")
+    .refine(
+      (val) => !val || /^https?:\/\//i.test(val.trim()),
+      "Tautan bukti harus berupa URL valid yang diawali http:// atau https://"
+    )
+    .optional(),
 });
 
 export type AddViolationFormData = z.infer<typeof addViolationSchema>;

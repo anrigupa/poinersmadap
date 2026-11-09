@@ -3,4 +3,5 @@ node_modules
 .env
 .env.local
 graphify-out
-supabase
+supabase/.temp
+supabase/.branches

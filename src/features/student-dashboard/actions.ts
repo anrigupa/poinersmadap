@@ -113,11 +113,12 @@ export async function getStudentDashboardData(
     throw new Error("Akses ditolak: Anda harus login untuk mengakses dashboard ini.");
   }
 
-  // Strict personal data isolation:
-  // Students can ONLY access their own data. Only admins may inspect arbitrary students.
-  const isStudent = session.user.role === "siswa";
-  const currentUserId = isStudent ? session.user.id : (overrideProfileId || session.user.id);
-  const currentNis = isStudent ? (session.user.nis || "10293") : (overrideNis || session.user.nis || "10293");
+  // Strict personal data isolation (SEC-IDOR-02 Hardened):
+  // Only administrators are permitted to override target profileId / NIS.
+  // Students and non-admin teachers are strictly bound to their own session.
+  const isAdmin = session.user.role === "admin";
+  const currentUserId = isAdmin && overrideProfileId ? overrideProfileId : session.user.id;
+  const currentNis = isAdmin && overrideNis ? overrideNis : (session.user.nis || "10293");
 
   // 1. Resolve Student Record
   const studentsRes = await getStudentsAction({ pageSize: 100 });
@@ -125,25 +126,21 @@ export async function getStudentDashboardData(
     (s) => s.profileId === currentUserId || s.nis === currentNis
   );
 
-  if (!student) {
-    // Default to the first demo student
-    student = studentsRes.items[0];
-  }
-
-  const violationPoints = student ? student.totalViolationPoints : 25;
-  const meritPoints = student ? student.totalMeritPoints : 10;
+  // If student record not found, adopt session profile data cleanly instead of demo student in production
+  const violationPoints = student ? student.totalViolationPoints : 0;
+  const meritPoints = student ? student.totalMeritPoints : 0;
   const levelInfo = await calculateViolationLevel(violationPoints);
 
   const profile: StudentProfileSummary = {
-    id: student?.id || "stu-1",
-    fullName: student?.fullName || "Muhammad Rizky Pratama",
-    nisn: student?.nisn || "0061928374",
-    nis: student?.nis || "10293",
-    email: student?.email || "siswa.10293@smadap.sch.id",
-    className: student?.className || "XI.B",
-    gender: student?.gender || "L",
-    parentName: student?.parentName || "Bambang Pratama",
-    parentPhone: student?.parentPhone || "081298765431",
+    id: student?.id || session.user.id || "student-profile",
+    fullName: student?.fullName || session.user.fullName || "Siswa SMAN 2 Pangkep",
+    nisn: student?.nisn || (session.user as any).nisn || "-",
+    nis: student?.nis || (session.user as any).nis || "-",
+    email: student?.email || session.user.email || "-",
+    className: student?.className || (session.user as any).className || "-",
+    gender: (student?.gender as any) || "L",
+    parentName: student?.parentName || "-",
+    parentPhone: student?.parentPhone || "-",
     status: student?.status || "active",
   };
 
@@ -163,9 +160,9 @@ export async function getStudentDashboardData(
     recommendation: levelInfo.recommendation,
   };
 
-  // 2. Incident History
-  // We provide a realistic chronological history matching the student's total points
-  const history: StudentViolationHistoryItem[] = [
+  // 2. Incident History (Only use fallback demo incidents in development mode)
+  const isDev = process.env.NODE_ENV === "development";
+  const history: StudentViolationHistoryItem[] = isDev && violationPoints > 0 ? [
     {
       id: "hist-01",
       ruleCode: "K-02",
@@ -205,39 +202,31 @@ export async function getStudentDashboardData(
       evidenceUrl: null,
       status: "confirmed",
     },
-  ];
+  ] : [];
 
   // 3. Monthly Trends (Semester Ganjil 2026/2027)
   const monthlyTrends: MonthlyTrendItem[] = [
     { month: "Jul", points: 0, incidentCount: 0 },
     { month: "Agu", points: 0, incidentCount: 0 },
-    { month: "Sep", points: 5, incidentCount: 1 },
-    { month: "Okt", points: 15, incidentCount: 1 },
-    { month: "Nov", points: 5, incidentCount: 1 },
+    { month: "Sep", points: isDev && violationPoints >= 5 ? 5 : 0, incidentCount: isDev && violationPoints >= 5 ? 1 : 0 },
+    { month: "Okt", points: isDev && violationPoints >= 20 ? 15 : 0, incidentCount: isDev && violationPoints >= 20 ? 1 : 0 },
+    { month: "Nov", points: isDev && violationPoints >= 25 ? 5 : 0, incidentCount: isDev && violationPoints >= 25 ? 1 : 0 },
     { month: "Des", points: 0, incidentCount: 0 },
   ];
-
-  // Adjust current month points if total is different
-  const sumPast = monthlyTrends.reduce((a, b) => a + b.points, 0);
-  if (violationPoints !== sumPast) {
-    const diff = violationPoints - sumPast;
-    monthlyTrends[4].points = Math.max(monthlyTrends[4].points + diff, 0);
-    monthlyTrends[4].incidentCount = Math.max(monthlyTrends[4].incidentCount + 1, 1);
-  }
 
   // 4. Category Breakdown
   const categoryBreakdown: CategoryBreakdownItem[] = [
     {
       categoryName: "Pelanggaran Ringan",
       points: Math.min(10, violationPoints),
-      count: 2,
+      count: violationPoints > 0 ? (violationPoints >= 10 ? 2 : 1) : 0,
       color: "bg-emerald-500",
       percentage: violationPoints > 0 ? Math.round((Math.min(10, violationPoints) / violationPoints) * 100) : 0,
     },
     {
       categoryName: "Pelanggaran Sedang",
       points: Math.min(15, Math.max(violationPoints - 10, 0)),
-      count: 1,
+      count: violationPoints > 10 ? 1 : 0,
       color: "bg-amber-500",
       percentage: violationPoints > 0 ? Math.round((Math.min(15, Math.max(violationPoints - 10, 0)) / violationPoints) * 100) : 0,
     },

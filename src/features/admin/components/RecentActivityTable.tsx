@@ -138,11 +138,11 @@ export default function RecentActivityTable({
             <Inbox className="w-5 h-5" />
           </div>
           <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
-            Tidak Ada Aktivitas Ditemukan
+            Belum ada aktivitas yang tercatat
           </p>
           <p className="text-[11px] text-slate-400 dark:text-slate-500 max-w-xs mt-0.5">
             {activities.length === 0
-              ? "Belum ada catatan pelanggaran siswa yang dilaporkan."
+              ? "Belum ada data pelanggaran siswa yang dilaporkan."
               : "Tidak ada data aktivitas yang sesuai dengan filter pencarian."}
           </p>
         </div>

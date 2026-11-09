@@ -10,7 +10,14 @@ export const recordViolationSchema = z.object({
     .string()
     .min(3, "Catatan kronologis minimal 3 karakter")
     .max(1000, "Catatan kronologis maksimal 1000 karakter"),
-  evidenceUrl: z.string().optional(),
+  evidenceUrl: z
+    .string()
+    .max(500, "Tautan bukti maksimal 500 karakter")
+    .refine(
+      (val) => !val || /^https?:\/\//i.test(val.trim()),
+      "Tautan bukti harus berupa URL valid yang diawali http:// atau https://"
+    )
+    .optional(),
   sanctionAction: z.string().max(100).optional(),
 });
 

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { recordCounselingSessionAction } from "@/features/counseling/actions";
 import { CounselingFormData } from "@/features/counseling/schemas";
+import StudentSelector from "@/components/ui/StudentSelector";
 
 interface StudentOption {
   id: string;
@@ -171,27 +172,23 @@ export default function AddCounselingModal({
           {/* 1. Student Selector */}
           <div className="space-y-1.5">
             <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-between">
-              <span>Pilih Siswa *</span>
+              <span>Cari Peserta Didik *</span>
               {currentStudent && (
                 <span className="text-[11px] font-normal text-slate-400">
                   Poin Saat Ini: <strong className="text-rose-600 dark:text-rose-400 font-bold">{currentPoints} Poin</strong>
                 </span>
               )}
             </label>
-            <select
+            <StudentSelector
+              students={students}
               value={selectedStudentId}
-              onChange={(e) => {
-                setSelectedStudentId(e.target.value);
+              onChange={(studentId) => {
+                setSelectedStudentId(studentId);
                 setPointReduction(0);
               }}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm transition"
-            >
-              {students.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.fullName} ({s.className} - NIS: {s.nis}) — {s.totalViolationPoints} Poin
-                </option>
-              ))}
-            </select>
+              placeholder="Pilih peserta didik..."
+              searchPlaceholder="Cari nama siswa, NIS, NISN, atau kelas..."
+            />
           </div>
 
           {/* 2. Counseling Type & Date */}

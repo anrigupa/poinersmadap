@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentSession } from "@/features/auth/actions/authActions";
+import { sanitizeSearchQuery } from "@/lib/security/guards";
 import { getDisciplinaryLevel } from "@/lib/constants/discipline";
 import { getTeachersAction } from "@/features/teachers/actions";
 import { getStudentsAction } from "@/features/students/actions";
@@ -120,7 +121,16 @@ export async function getCounselorAccessStatusAction(
     };
   }
 
-  const effectiveUserId = userId || session.user.id;
+  // Only Guru or Admin can hold counselor status (Admin already returned above)
+  if (session.user.role !== "guru") {
+    return {
+      isCounselor: false,
+      message: "Akses hanya dimiliki oleh Guru BK.",
+    };
+  }
+
+  // Prevent userId parameter tampering (HIGH-03): Guru must always use their own session.user.id
+  const effectiveUserId = sanitizeSearchQuery(session.user.id);
 
   // Check in Supabase teachers table
   if (isSupabaseLive()) {
@@ -214,7 +224,125 @@ export async function getCounselorAccessStatusAction(
 }
 
 // -------------------------------------------------------------
-// 2. GET COUNSELOR DASHBOARD DATA
+// 2. GET COUNSELING RECORDS HISTORY (SEC-IDOR-01 HARDENED)
+// -------------------------------------------------------------
+export async function getCounselingRecordsAction(
+  studentId?: string
+): Promise<CounselingRecordItem[]> {
+  // 1. Remove unauthenticated access & enforce active session
+  const session = await getCurrentSession();
+  if (!session) {
+    throw new Error(
+      "Akses ditolak: Anda harus login terlebih dahulu untuk mengakses riwayat konseling."
+    );
+  }
+
+  // 2. Enforce role validation: strictly Admin or Counselor (Guru BK)
+  const access = await getCounselorAccessStatusAction();
+  if (!access.isCounselor) {
+    throw new Error(
+      "Akses ditolak: Hanya Guru BK atau Administrator yang berwenang mengakses catatan konseling siswa."
+    );
+  }
+
+  // 3. Strict scope filtering & sanitization
+  const cleanStudentId = studentId ? sanitizeSearchQuery(studentId) : undefined;
+  let records: CounselingRecordItem[] = [];
+
+  if (isSupabaseLive()) {
+    try {
+      const supabase = process.env.SUPABASE_SERVICE_ROLE_KEY
+        ? createAdminClient()
+        : await createClient();
+
+      let query = supabase
+        .from("counseling_records")
+        .select(`
+          id,
+          student_id,
+          counselor_id,
+          counseling_type,
+          notes,
+          counseling_date,
+          status,
+          created_at,
+          students:student_id (
+            id,
+            nis,
+            class_name,
+            profiles:profile_id (
+              full_name
+            )
+          ),
+          teachers:counselor_id (
+            id,
+            profiles:profile_id (
+              full_name
+            )
+          )
+        `)
+        .order("counseling_date", { ascending: false });
+
+      if (cleanStudentId) {
+        query = query.eq("student_id", cleanStudentId);
+      }
+
+      const { data, error } = await query;
+
+      if (!error && data && data.length > 0) {
+        records = data.map((d: any) => {
+          const student = d.students || {};
+          const studentProfile = Array.isArray(student.profiles)
+            ? student.profiles[0]
+            : student.profiles;
+
+          const teacher = d.teachers || {};
+          const teacherProfile = Array.isArray(teacher.profiles)
+            ? teacher.profiles[0]
+            : teacher.profiles;
+
+          return {
+            id: d.id,
+            studentId: d.student_id,
+            studentName: studentProfile?.full_name || "Siswa",
+            studentNis: student.nis || "-",
+            className: student.class_name || "-",
+            counselorId: d.counselor_id || "-",
+            counselorName: teacherProfile?.full_name || "Guru BK",
+            counselingType: d.counseling_type || "Bimbingan Konseling",
+            description: d.notes || "",
+            notes: d.notes || "",
+            status: d.status || "completed",
+            counselingDate: d.counseling_date,
+            pointReduction: 0,
+            previousPoints: 0,
+            resultingPoints: 0,
+            reductionReason: null,
+            evidenceNotes: null,
+            action: d.counseling_type || "Bimbingan Konseling",
+            createdAt: d.created_at,
+          };
+        });
+        return records;
+      }
+    } catch (err) {
+      console.warn("Supabase counseling_records fetch failed, using fallback:", err);
+    }
+  }
+
+  // Fallback to in-memory records if DB empty or unavailable (Development mode only)
+  if (records.length === 0 && process.env.NODE_ENV === "development") {
+    if (cleanStudentId) {
+      return IN_MEMORY_COUNSELING_RECORDS.filter((r) => r.studentId === cleanStudentId);
+    }
+    return [...IN_MEMORY_COUNSELING_RECORDS];
+  }
+
+  return records;
+}
+
+// -------------------------------------------------------------
+// 3. GET COUNSELOR DASHBOARD DATA
 // -------------------------------------------------------------
 export async function getCounselorDashboardDataAction(): Promise<CounselorDashboardData> {
   const access = await getCounselorAccessStatusAction();
@@ -252,79 +380,12 @@ export async function getCounselorDashboardDataAction(): Promise<CounselorDashbo
     console.warn("Failed fetching counselor reductions:", err);
   }
 
-  // 3. Fetch counseling records history
+  // 3. Fetch counseling records history (Strict counseling_records query)
   let counselingHistory: CounselingRecordItem[] = [];
-
-  if (isSupabaseLive()) {
-    try {
-      const supabase = process.env.SUPABASE_SERVICE_ROLE_KEY
-        ? createAdminClient()
-        : await createClient();
-
-      const { data, error } = await supabase
-        .from("counseling_records")
-        .select(`
-          id,
-          student_id,
-          counselor_id,
-          counselor_name,
-          counseling_type,
-          description,
-          counseling_date,
-          point_reduction,
-          reduction_reason,
-          evidence_notes,
-          previous_points,
-          resulting_points,
-          action_taken,
-          created_at,
-          students:student_id (
-            id,
-            nis,
-            class_name,
-            profiles:profile_id (
-              full_name
-            )
-          )
-        `)
-        .order("counseling_date", { ascending: false });
-
-      if (!error && data && data.length > 0) {
-        counselingHistory = data.map((d: any) => {
-          const student = d.students || {};
-          const profile = Array.isArray(student.profiles)
-            ? student.profiles[0]
-            : student.profiles;
-
-          return {
-            id: d.id,
-            studentId: d.student_id,
-            studentName: profile?.full_name || "Siswa",
-            studentNis: student.nis || "-",
-            className: student.class_name || "-",
-            counselorId: d.counselor_id || "-",
-            counselorName: d.counselor_name || "Guru BK",
-            counselingType: d.counseling_type,
-            description: d.description,
-            counselingDate: d.counseling_date,
-            pointReduction: d.point_reduction || 0,
-            previousPoints: d.previous_points || 0,
-            resultingPoints: d.resulting_points || 0,
-            reductionReason: d.reduction_reason,
-            evidenceNotes: d.evidence_notes,
-            action: d.action_taken || "Bimbingan Konseling",
-            createdAt: d.created_at,
-          };
-        });
-      }
-    } catch (err) {
-      console.warn("Supabase counseling_records fetch failed, using fallback:", err);
-    }
-  }
-
-  // Fallback to in-memory records if DB empty or unavailable
-  if (counselingHistory.length === 0) {
-    counselingHistory = [...IN_MEMORY_COUNSELING_RECORDS];
+  try {
+    counselingHistory = await getCounselingRecordsAction();
+  } catch (err) {
+    console.warn("Failed fetching counselor history:", err);
   }
 
   // 4. Fetch available students and calculate effective discipline & merits
@@ -333,6 +394,29 @@ export async function getCounselorDashboardDataAction(): Promise<CounselorDashbo
     sortBy: "fullName",
     sortOrder: "asc",
   });
+
+  // Fetch all active violations count per student if live
+  const studentViolationsCountMap = new Map<string, number>();
+  if (isSupabaseLive()) {
+    try {
+      const supabase = createAdminClient();
+      const { data: vList } = await supabase
+        .from("student_violations")
+        .select("student_id")
+        .neq("status", "cancelled");
+
+      if (vList) {
+        for (const v of vList) {
+          studentViolationsCountMap.set(
+            v.student_id,
+            (studentViolationsCountMap.get(v.student_id) || 0) + 1
+          );
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to fetch student_violations count, using point approximation:", err);
+    }
+  }
 
   const availableStudents: CounselorStudentOption[] = studentsRes.items.map((s) => {
     const studentMerits = achievements
@@ -390,11 +474,17 @@ export async function getCounselorDashboardDataAction(): Promise<CounselorDashbo
         .filter((r) => r.studentId === s.id)
         .reduce((sum, r) => sum + (r.reductionPoints || 0), 0);
 
+      const rawViolationsCount =
+        studentViolationsCountMap.get(s.id) ??
+        (s.totalViolationPoints > 0 ? Math.ceil(s.totalViolationPoints / 10) : 0);
+
       return {
         id: s.id,
         studentName: s.fullName,
         studentNis: s.nis,
+        studentNisn: s.nisn,
         className: s.className,
+        totalViolations: rawViolationsCount,
         totalViolationPoints: s.totalViolationPoints,
         totalReductionPoints: totalReductions,
         effectivePoints: s.effectivePoints,
@@ -434,9 +524,9 @@ export async function getCounselorDashboardDataAction(): Promise<CounselorDashbo
 export async function getStudentCounselingProfileAction(
   studentId: string
 ): Promise<StudentCounselingProfile | null> {
-  const session = await getCurrentSession();
-  if (!session || (session.user.role !== "guru" && session.user.role !== "admin")) {
-    throw new Error("Akses ditolak: Hanya Guru atau Administrator.");
+  const access = await getCounselorAccessStatusAction();
+  if (!access.isCounselor) {
+    throw new Error("Akses ditolak: Hanya Guru BK atau Administrator yang berwenang mengakses profil konseling siswa.");
   }
 
   if (isSupabaseLive()) {
@@ -542,7 +632,7 @@ export async function getStudentCounselingProfileAction(
 }
 
 // -------------------------------------------------------------
-// 4. RECORD COUNSELING SESSION & POINT REDUCTION
+// 5. RECORD COUNSELING SESSION (Strict Schema Alignment)
 // -------------------------------------------------------------
 export async function recordCounselingSessionAction(
   data: CounselingFormData
@@ -563,17 +653,16 @@ export async function recordCounselingSessionAction(
     };
   }
 
+  const session = await getCurrentSession();
   const {
     studentId,
     counselingType,
     description,
     counselingDate,
-    pointReduction,
-    reductionReason,
     evidenceNotes,
   } = parsed.data;
 
-  // 1. Fetch current student points to ensure constraint: cannot reduce below 0
+  // 1. Fetch current student profile
   const studentProfile = await getStudentCounselingProfileAction(studentId);
   if (!studentProfile) {
     return {
@@ -582,32 +671,15 @@ export async function recordCounselingSessionAction(
     };
   }
 
-  const currentPoints = studentProfile.totalPoints;
+  const counselorName = access.teacher?.fullName || session?.user?.fullName || "Guru BK";
+  const sessionDate = counselingDate || new Date().toISOString();
 
-  // Constraint: Cannot reduce below 0 points
-  if (pointReduction > currentPoints) {
-    return {
-      success: false,
-      message: `Pengurangan poin (${pointReduction}) tidak boleh melebihi akumulasi poin siswa saat ini (${currentPoints} poin).`,
-    };
-  }
-
-  const previousPoints = currentPoints;
-  const resultingPoints = Math.max(0, currentPoints - pointReduction);
-
-  // Determine updated status
-  let newStatus: string = "active";
-  if (resultingPoints >= 151) newStatus = "sp3";
-  else if (resultingPoints >= 76) newStatus = "sp2";
-  else if (resultingPoints >= 36) newStatus = "sp1";
-
-  const actionTaken =
-    pointReduction > 0
-      ? `Konseling & Pemotongan Poin (-${pointReduction})`
-      : "Bimbingan Konseling";
-
-  const counselorName = access.teacher?.fullName || "Guru BK";
-  const counselorId = access.teacher?.id || "usr-guru-01";
+  const combinedNotes = [
+    description.trim(),
+    evidenceNotes?.trim() ? `[Catatan Tambahan: ${evidenceNotes.trim()}]` : null,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 
   const newRecord: CounselingRecordItem = {
     id: `cnsl-${Date.now()}`,
@@ -615,17 +687,19 @@ export async function recordCounselingSessionAction(
     studentName: studentProfile.studentName,
     studentNis: studentProfile.nis,
     className: studentProfile.className,
-    counselorId,
+    counselorId: access.teacher?.id || "usr-guru-01",
     counselorName,
     counselingType,
-    description,
-    counselingDate,
-    pointReduction,
-    previousPoints,
-    resultingPoints,
-    reductionReason: reductionReason || null,
+    description: combinedNotes,
+    notes: combinedNotes,
+    status: "completed",
+    counselingDate: sessionDate,
+    pointReduction: 0,
+    previousPoints: studentProfile.totalPoints,
+    resultingPoints: studentProfile.totalPoints,
+    reductionReason: null,
     evidenceNotes: evidenceNotes || null,
-    action: actionTaken,
+    action: counselingType,
     createdAt: new Date().toISOString(),
   };
 
@@ -636,60 +710,112 @@ export async function recordCounselingSessionAction(
         ? createAdminClient()
         : await createClient();
 
-      // A. Update student total_violation_points & status (PRESERVE student_violations!)
-      await supabase
-        .from("students")
-        .update({
-          total_violation_points: resultingPoints,
-          status: newStatus,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", studentId);
+      // Resolve valid teacher id (strictly teachers.id!)
+      let teacherDbId: string | null = null;
+      if (access.teacher?.id && access.teacher.id.length === 36 && access.teacher.id !== session?.user?.id) {
+        teacherDbId = access.teacher.id;
+      }
+      if (!teacherDbId && session?.user?.id) {
+        const { data: teacherRow } = await supabase
+          .from("teachers")
+          .select("id")
+          .or(`profile_id.eq.${session.user.id},id.eq.${session.user.id}`)
+          .maybeSingle();
 
-      // B. Insert into counseling_records
+        if (teacherRow?.id) {
+          teacherDbId = teacherRow.id;
+        }
+      }
+      // Fallback: designated counselor teacher
+      if (!teacherDbId) {
+        const { data: defaultCounselor } = await supabase
+          .from("teachers")
+          .select("id")
+          .or("teacher_type.eq.counselor,specialization.eq.guru_bk")
+          .limit(1)
+          .maybeSingle();
+
+        if (defaultCounselor?.id) {
+          teacherDbId = defaultCounselor.id;
+        }
+      }
+      if (!teacherDbId) {
+        const { data: anyTeacher } = await supabase
+          .from("teachers")
+          .select("id")
+          .limit(1)
+          .maybeSingle();
+        if (anyTeacher?.id) {
+          teacherDbId = anyTeacher.id;
+        }
+      }
+
+      if (!teacherDbId) {
+        return {
+          success: false,
+          message: "Akses ditolak: Data pengajar Guru BK tidak ditemukan dalam sistem.",
+        };
+      }
+
+      // STRICT SCHEMA ALIGNMENT:
+      // Allowed columns in public.counseling_records:
+      // - student_id
+      // - counselor_id
+      // - counseling_date
+      // - counseling_type
+      // - notes
+      // - status
+      const counselingPayload = {
+        student_id: studentId,
+        counselor_id: teacherDbId,
+        counseling_date: sessionDate,
+        counseling_type: counselingType,
+        notes: combinedNotes,
+        status: "completed",
+      };
+
       const { data: inserted, error: insertError } = await supabase
         .from("counseling_records")
-        .insert({
-          student_id: studentId,
-          counselor_id: counselorId.includes("-") && counselorId.length === 36 ? counselorId : null,
-          counselor_name: counselorName,
-          counseling_type: counselingType,
-          description,
-          counseling_date: counselingDate,
-          point_reduction: pointReduction,
-          reduction_reason: reductionReason || null,
-          evidence_notes: evidenceNotes || null,
-          previous_points: previousPoints,
-          resulting_points: resultingPoints,
-          action_taken: actionTaken,
-        })
+        .insert(counselingPayload)
         .select()
         .single();
 
-      if (!insertError && inserted) {
+      if (insertError) {
+        console.error("Supabase counseling_records insert error:", insertError);
+        return {
+          success: false,
+          message: `Gagal menyimpan catatan konseling: ${insertError.message}`,
+        };
+      }
+
+      if (inserted) {
         newRecord.id = inserted.id;
+        newRecord.counselorId = inserted.counselor_id;
       }
     } catch (err: any) {
-      console.warn("Supabase counseling persistence failed, falling back to memory:", err.message);
+      console.error("Supabase counseling persistence exception:", err);
+      return {
+        success: false,
+        message: `Terjadi kesalahan saat menyimpan catatan konseling: ${err.message}`,
+      };
     }
   }
 
-  // 3. Fallback memory update
+  // 3. Fallback memory update (Dev mode)
   IN_MEMORY_COUNSELING_RECORDS.unshift(newRecord);
 
-  revalidatePath("/guru/counseling");
-  revalidatePath("/guru");
-  revalidatePath("/admin/students");
-  revalidatePath("/siswa");
-
-  const successMessage =
-    pointReduction > 0
-      ? `Sesi konseling berhasil dicatat dan ${pointReduction} poin berhasil dipotong dari ${studentProfile.studentName} (Poin saat ini: ${resultingPoints}).`
-      : `Sesi bimbingan konseling untuk ${studentProfile.studentName} berhasil dicatat.`;
+  try {
+    revalidatePath("/guru/counseling");
+    revalidatePath("/guru");
+    revalidatePath("/admin/students");
+    revalidatePath("/siswa");
+  } catch {
+    // Graceful no-op when executed outside active request lifecycle
+  }
 
   return {
     success: true,
-    message: successMessage,
+    message: `Sesi bimbingan konseling untuk ${studentProfile.studentName} berhasil dicatat.`,
     data: newRecord,
   };
 }

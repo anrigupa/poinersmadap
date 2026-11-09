@@ -219,8 +219,8 @@ export async function getStudentViolationHistoryAction(
     }
   }
 
-  // Fallback: Filter strictly by personal student ID / NIS
-  if (allPersonalRecords.length === 0) {
+  // Fallback: Filter strictly by personal student ID / NIS (Development mode only)
+  if (allPersonalRecords.length === 0 && process.env.NODE_ENV === "development") {
     allPersonalRecords = DEMO_VIOLATION_RECORDS.filter(
       (r) => r.studentId === currentStudentId || r.studentNis === currentStudentNis
     );

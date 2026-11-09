@@ -1,7 +1,8 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
-import { AUTH_COOKIE_NAME, ROLE_REDIRECT_MAP, getRoleRedirectPath, normalizeRole } from "@/lib/constants/auth";
-import { AuthSession, UserRole } from "@/types/auth";
+import { AUTH_COOKIE_NAME, getRoleRedirectPath, normalizeRole } from "@/lib/constants/auth";
+import { AuthSession } from "@/types/auth";
+import { verifySessionCookie } from "@/lib/security/sessionToken";
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({
@@ -12,25 +13,14 @@ export async function updateSession(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
-  // Read poiner cookie session (supports both Supabase token and demo fallback session)
+  // Read and cryptographically verify poiner cookie session (HMAC-SHA256)
   const sessionCookie = request.cookies.get(AUTH_COOKIE_NAME)?.value;
-  let currentSession: AuthSession | null = null;
+  let currentSession: AuthSession | null = await verifySessionCookie(sessionCookie);
+  const isPersistent = currentSession?.rememberMe === true;
 
-  if (sessionCookie) {
-    try {
-      const decoded = JSON.parse(decodeURIComponent(sessionCookie));
-      if (decoded && decoded.user && decoded.user.role) {
-        currentSession = {
-          ...decoded,
-          user: {
-            ...decoded.user,
-            role: normalizeRole(decoded.user.role),
-          },
-        } as AuthSession;
-      }
-    } catch {
-      // Invalid cookie format
-    }
+  // If a cookie was sent by the client but failed cryptographic verification or expired, purge it
+  if (sessionCookie && !currentSession) {
+    response.cookies.delete(AUTH_COOKIE_NAME);
   }
 
   // Attempt Supabase live session refresh if configured
@@ -44,13 +34,16 @@ export async function updateSession(request: NextRequest) {
           return request.cookies.get(name)?.value;
         },
         set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({ name, value, ...options });
+          const finalOptions: CookieOptions = isPersistent
+            ? options
+            : { ...options, maxAge: undefined, expires: undefined };
+          request.cookies.set({ name, value, ...finalOptions });
           response = NextResponse.next({
             request: {
               headers: request.headers,
             },
           });
-          response.cookies.set({ name, value, ...options });
+          response.cookies.set({ name, value, ...finalOptions });
         },
         remove(name: string, options: CookieOptions) {
           request.cookies.set({ name, value: "", ...options });
@@ -65,33 +58,43 @@ export async function updateSession(request: NextRequest) {
     });
 
     const { data: { user } } = await supabase.auth.getUser();
-    if (user && !currentSession) {
-      let rawRole = user.user_metadata?.role;
-      if (!rawRole) {
-        try {
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("role, full_name")
-            .eq("id", user.id)
-            .maybeSingle();
-          if (profile?.role) {
-            rawRole = profile.role;
-          }
-        } catch {
-          // Fallback to user metadata
-        }
+
+    // 1. If verified session cookie is missing, but a lingering Supabase user session exists:
+    // do NOT auto re-authenticate. Clean up Supabase session.
+    if (!currentSession && user) {
+      try {
+        await supabase.auth.signOut();
+      } catch {
+        // silent
       }
-      const role = normalizeRole(rawRole);
-      currentSession = {
-        user: {
-          id: user.id,
-          email: user.email || "",
-          fullName: user.user_metadata?.full_name || user.email || "Pengguna",
-          role,
-        },
-        token: user.id,
-        expiresAt: Date.now() + 86400 * 1000,
-      };
+      response.cookies.delete(AUTH_COOKIE_NAME);
+    } else if (currentSession && !user) {
+      // 2. If application cookie exists without an active Supabase user session,
+      // immediately invalidate the session (prevents any offline/forged/stale cookie usage).
+      currentSession = null;
+      response.cookies.delete(AUTH_COOKIE_NAME);
+    } else if (currentSession && user && user.id !== currentSession.user.id) {
+      // 3. Prevent cross-account session mismatch between Supabase token and application cookie
+      currentSession = null;
+      try {
+        await supabase.auth.signOut();
+      } catch {
+        // silent
+      }
+      response.cookies.delete(AUTH_COOKIE_NAME);
+    } else if (currentSession && user && pathname.startsWith("/admin")) {
+      // 4. Strict Admin Verification against Supabase user metadata:
+      // If Supabase metadata explicitly marks user as teacher/guru/student/siswa, block /admin immediately.
+      const metaRole = user.app_metadata?.role || user.user_metadata?.role;
+      if (metaRole && normalizeRole(metaRole) !== "admin") {
+        currentSession = {
+          ...currentSession,
+          user: {
+            ...currentSession.user,
+            role: normalizeRole(metaRole),
+          },
+        };
+      }
     }
   }
 
@@ -117,11 +120,12 @@ export async function updateSession(request: NextRequest) {
 
   // 3. Authenticated user attempting to access route outside their role permission
   if (currentSession && isProtected) {
-    const role = normalizeRole(currentSession.user.role);
+    const rawRole = currentSession.user.role;
+    const role = normalizeRole(rawRole);
 
-    if (isProtectedAdmin && role !== "admin") {
-      // Non-admin trying to access /admin -> bounce to their own role dashboard
-      const targetUrl = getRoleRedirectPath(role);
+    // Strict exact check for /admin and /admin/*: ONLY canonical "admin" role is permitted
+    if (isProtectedAdmin && (rawRole !== "admin" || role !== "admin")) {
+      const targetUrl = role === "guru" || role === "siswa" ? getRoleRedirectPath(role) : "/login";
       return NextResponse.redirect(new URL(targetUrl, request.url));
     }
 

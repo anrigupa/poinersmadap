@@ -63,7 +63,7 @@ export const ROLE_NAVIGATION: Record<UserRole, NavSection[]> = {
       items: [
         {
           title: "Surat Panggilan (SP)",
-          href: "/admin/sanctions",
+          href: "/admin/letters",
           icon: FileText,
           badge: "6 Aktif",
           badgeColor: "bg-rose-100 text-rose-700",

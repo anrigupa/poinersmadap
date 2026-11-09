@@ -126,6 +126,8 @@ CREATE INDEX IF NOT EXISTS idx_violations_type ON public.student_violations(viol
 CREATE INDEX IF NOT EXISTS idx_violations_status ON public.student_violations(status);
 
 -- 9. Automatic Profile Creation on Supabase Auth Signup (Trigger)
+-- Security (HIGH-05): Never trust client-writable `raw_user_meta_data->>'role'`.
+-- Only accept role from server/service_role-controlled `raw_app_meta_data->>'role'`, defaulting strictly to 'siswa'.
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 BEGIN
@@ -134,7 +136,14 @@ BEGIN
     new.id,
     new.email,
     COALESCE(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)),
-    COALESCE(new.raw_user_meta_data->>'role', 'student')
+    COALESCE(
+      CASE
+        WHEN new.raw_app_meta_data->>'role' IN ('admin', 'teacher', 'student', 'guru', 'siswa')
+        THEN new.raw_app_meta_data->>'role'
+        ELSE NULL
+      END,
+      'siswa'
+    )
   )
   ON CONFLICT (id) DO NOTHING;
   RETURN new;

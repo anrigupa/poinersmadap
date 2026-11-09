@@ -1,0 +1,20 @@
+kode,nama,kategori,poin,deskripsi,rekomendasi_sanksi
+R-01,Terlambat Hadir di Sekolah,Ringan,5,Siswa tiba di sekolah melewati batas waktu bel masuk (>10 menit),Peringatan lisan dan pembinaan guru piket
+R-02,Atribut Seragam Tidak Lengkap,Ringan,5,Tidak memakai dasi/topi/sabuk/kaos kaki sesuai ketentuan hari,Merapikan atribut dan pembinaan kedisiplinan
+R-03,Sepatu Tidak Sesuai Ketentuan,Ringan,5,Tidak mengenakan sepatu hitam polos berkaos kaki putih/hitam,Teguran lisan
+R-04,Tidak Mengikuti Upacara / Apel,Ringan,10,Tidak mengikuti upacara bendera hari Senin atau apel tanpa keterangan sah,Tugas mandiri bertema nasionalisme
+R-05,Membuang Sampah Sembarangan,Ringan,5,Membuang sampah tidak pada tempat yang disediakan di lingkungan sekolah,Operasi semut membersihkan area sekitar
+R-06,Menggunakan HP Saat Belajar Tanpa Izin,Ringan,10,Mengoperasikan HP saat KBM tanpa izin atau instruksi guru pengajar,HP dititipkan ke guru piket hingga pulang sekolah
+R-07,Rambut Tidak Rapi / Gondrong (Putra),Ringan,5,Panjang rambut melewati kerah baju atau menutup daun telinga bagi siswa putra,Diberi waktu 2 hari untuk mencukur rapi
+S-01,Membolos / Meninggalkan Jam Belajar,Sedang,20,Meninggalkan kelas atau area sekolah tanpa izin guru piket / satpam,Surat peringatan dan pembinaan wali kelas
+S-02,Tidak Masuk Sekolah Tanpa Keterangan (Alpa >= 3 Hari),Sedang,15,Alpa berturut-turut tanpa surat sakit atau izin orang tua,Pemanggilan orang tua oleh wali kelas
+S-03,Merusak Fasilitas Inventaris Sekolah,Sedang,25,Merusak meja kursi kaca atau sarana kelas sekolah secara sengaja,Mengganti/memperbaiki fasilitas bersama orang tua
+S-04,Membawa atau Merokok / Vape,Sedang,30,Kedapatan membawa menyimpan atau mengisap rokok/rokok elektrik,Sanksi pembinaan khusus dan pemanggilan orang tua ke ruang BK
+S-05,Bersikap Tidak Sopan / Membangkang Guru,Sedang,20,Melawan perkataan guru dengan nada kasar atau sikap menantang,Permohonan maaf tertulis dan konseling BK
+S-06,Melakukan Pemalakan / Pemerasan Siswa,Sedang,25,Meminta uang atau barang milik siswa lain secara paksa,Mengembalikan uang dan pembinaan intensif BK
+B-01,Terlibat Perundungan (Bullying),Berat,50,Melakukan kekerasan fisik psikis verbal atau perundungan siber,Surat Peringatan 2 (SP2) dan skorsing sementara
+B-02,Terlibat Tawuran / Perkelahian,Berat,75,Terlibat pertikaian fisik atau tawuran di dalam maupun di luar lingkungan sekolah,Surat Peringatan 2 (SP2) dan mediasi pihak terkait
+B-03,Membawa Senjata Tajam Berbahaya,Berat,75,Membawa sajam atau benda tajam tanpa kepentingan praktikum yang sah,Penyitaan barang dan pemanggilan orang tua
+B-04,Membawa / Mengonsumsi Miras & Narkoba,Berat,100,Terbukti membawa mengonsumsi atau mengedarkan minuman keras/narkoba,Surat Peringatan 3 (SP3) / Dikembalikan kepada Orang Tua
+B-05,Pelecehan Seksual / Pornografi,Berat,100,Melakukan tindakan asusila pelecehan fisik atau menyebarkan konten pornografi,Sidang Pleno Dewan Guru & Rekomendasi Dikeluarkan
+B-06,Melakukan Tindak Pidana Pencurian,Berat,100,Melakukan pencurian uang fasilitas atau barang berharga di lingkungan sekolah,Proses hukum dan dikembalikan ke orang tua

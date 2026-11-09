@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentSession } from "@/features/auth/actions/authActions";
+import { requireRole, assertRole, sanitizeSearchQuery } from "@/lib/security/guards";
 import { getDisciplinaryLevel } from "@/lib/constants/discipline";
 import {
   StudentItem,
@@ -30,169 +31,8 @@ async function checkAdminAccess<T = any>(actionName: string): Promise<ActionResp
   return null;
 }
 
-// In-memory student dataset for zero-config development & instant preview
-let INITIAL_STUDENTS: StudentItem[] = [
-  {
-    id: "stu-1",
-    profileId: "usr-siswa-01",
-    nisn: "0061928374",
-    nis: "10293",
-    fullName: "Muhammad Rizky Pratama",
-    email: "siswa.10293@smadap.sch.id",
-    className: "XI.B",
-    gender: "L",
-    totalViolationPoints: 25,
-    totalMeritPoints: 10,
-    status: "active",
-    parentName: "Bambang Pratama",
-    parentPhone: "081298765431",
-    createdAt: "2024-07-15",
-  },
-  {
-    id: "stu-2",
-    profileId: "usr-siswa-02",
-    nisn: "0062839401",
-    nis: "10294",
-    fullName: "Aditya Pratama Putra",
-    email: "aditya.10294@smadap.sch.id",
-    className: "XII.D",
-    gender: "L",
-    totalViolationPoints: 45,
-    totalMeritPoints: 0,
-    status: "sp1",
-    parentName: "Hendro Wibowo",
-    parentPhone: "081298765432",
-    createdAt: "2023-07-15",
-  },
-  {
-    id: "stu-3",
-    profileId: "usr-siswa-03",
-    nisn: "0073940182",
-    nis: "10295",
-    fullName: "Siti Nurhaliza",
-    email: "siti.10295@smadap.sch.id",
-    className: "X.A",
-    gender: "P",
-    totalViolationPoints: 0,
-    totalMeritPoints: 35,
-    status: "active",
-    parentName: "Ahmad Dahlan",
-    parentPhone: "081298765433",
-    createdAt: "2024-07-16",
-  },
-  {
-    id: "stu-4",
-    profileId: "usr-siswa-04",
-    nisn: "0059283741",
-    nis: "10296",
-    fullName: "Fajar Maulana",
-    email: "fajar.10296@smadap.sch.id",
-    className: "XII.E",
-    gender: "L",
-    totalViolationPoints: 85,
-    totalMeritPoints: 5,
-    status: "sp2",
-    parentName: "Sulaiman",
-    parentPhone: "081298765434",
-    createdAt: "2023-07-15",
-  },
-  {
-    id: "stu-5",
-    profileId: "usr-siswa-05",
-    nisn: "0068392019",
-    nis: "10297",
-    fullName: "Rina Maharani",
-    email: "rina.10297@smadap.sch.id",
-    className: "XI.A",
-    gender: "P",
-    totalViolationPoints: 15,
-    totalMeritPoints: 20,
-    status: "active",
-    parentName: "Mansyur",
-    parentPhone: "081298765435",
-    createdAt: "2024-07-17",
-  },
-  {
-    id: "stu-6",
-    profileId: "usr-siswa-06",
-    nisn: "0071029384",
-    nis: "10298",
-    fullName: "Bagus Prasetyo",
-    email: "bagus.10298@smadap.sch.id",
-    className: "X.B",
-    gender: "L",
-    totalViolationPoints: 10,
-    totalMeritPoints: 50,
-    status: "active",
-    parentName: "Joko Waluyo",
-    parentPhone: "081298765436",
-    createdAt: "2024-07-18",
-  },
-  {
-    id: "stu-7",
-    profileId: "usr-siswa-07",
-    nisn: "0065748392",
-    nis: "10299",
-    fullName: "Putri Anggraini",
-    email: "putri.10299@smadap.sch.id",
-    className: "XI.C",
-    gender: "P",
-    totalViolationPoints: 5,
-    totalMeritPoints: 15,
-    status: "active",
-    parentName: "Rudi Hartono",
-    parentPhone: "081298765437",
-    createdAt: "2024-07-19",
-  },
-  {
-    id: "stu-8",
-    profileId: "usr-siswa-08",
-    nisn: "0058291038",
-    nis: "10300",
-    fullName: "Rian Hidayat",
-    email: "rian.10300@smadap.sch.id",
-    className: "XII.C",
-    gender: "L",
-    totalViolationPoints: 110,
-    totalMeritPoints: 0,
-    status: "sp3",
-    parentName: "Syamsul Bahri",
-    parentPhone: "081298765438",
-    createdAt: "2023-07-15",
-  },
-  {
-    id: "stu-9",
-    profileId: "usr-siswa-09",
-    nisn: "0074829102",
-    nis: "10301",
-    fullName: "Dewi Anggita",
-    email: "dewi.10301@smadap.sch.id",
-    className: "X.C",
-    gender: "P",
-    totalViolationPoints: 0,
-    totalMeritPoints: 25,
-    status: "active",
-    parentName: "Gunawan",
-    parentPhone: "081298765439",
-    createdAt: "2024-07-20",
-  },
-  {
-    id: "stu-10",
-    profileId: "usr-siswa-10",
-    nisn: "0069382014",
-    nis: "10302",
-    fullName: "Dimas Arya Pangestu",
-    email: "dimas.10302@smadap.sch.id",
-    className: "XI.D",
-    gender: "L",
-    totalViolationPoints: 35,
-    totalMeritPoints: 5,
-    status: "warning" as any,
-    parentName: "Teguh Santoso",
-    parentPhone: "081298765440",
-    createdAt: "2024-07-21",
-  },
-];
+// Clean empty initial state (all data derived strictly from Supabase PostgreSQL)
+let INITIAL_STUDENTS: StudentItem[] = [];
 
 function isSupabaseLive(): boolean {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -208,6 +48,10 @@ function isSupabaseLive(): boolean {
 // -------------------------------------------------------------
 
 export async function getStudentSummaryAction(): Promise<StudentSummaryStats> {
+  // Enforce authenticated staff role (CRITICAL-02 remediation)
+  const session = await requireRole(["admin", "guru"]);
+  assertRole(session, ["admin", "guru"], "mengakses ringkasan data siswa");
+
   if (isSupabaseLive()) {
     try {
       const supabase = process.env.SUPABASE_SERVICE_ROLE_KEY ? createAdminClient() : await createClient();
@@ -228,6 +72,15 @@ export async function getStudentSummaryAction(): Promise<StudentSummaryStats> {
     } catch (err) {
       console.warn("Supabase summary error, using fallback:", err);
     }
+  }
+
+  if (process.env.NODE_ENV !== "development") {
+    return {
+      totalStudents: 0,
+      safeCount: 0,
+      warningCount: 0,
+      dangerCount: 0,
+    };
   }
 
   return {
@@ -274,6 +127,14 @@ export async function getSiswaTertibStatsAction(): Promise<SiswaTertibStats> {
     }
   }
 
+  if (process.env.NODE_ENV !== "development") {
+    return {
+      totalSiswaTertib: 0,
+      totalActiveStudents: 0,
+      percentage: 100,
+    };
+  }
+
   const activeStudents = INITIAL_STUDENTS.filter((s) => s.status === "active");
   const totalActiveStudents = activeStudents.length;
   const totalSiswaTertib = activeStudents.filter(
@@ -298,6 +159,11 @@ export async function getSiswaTertibStatsAction(): Promise<SiswaTertibStats> {
 export async function getStudentsAction(
   filter: StudentFilter = {}
 ): Promise<PaginatedResult<StudentItem>> {
+  // Enforce authenticated session & role verification (CRITICAL-02 remediation)
+  const session = await requireRole(["admin", "guru", "siswa"]);
+  assertRole(session, ["admin", "guru", "siswa"], "mengakses data siswa");
+  const isStudentCaller = session.user.role === "siswa";
+
   const {
     search = "",
     className,
@@ -334,6 +200,17 @@ export async function getStudentsAction(
         `,
         { count: "exact" }
       );
+
+      // Strict tenant isolation: students may only query their own record
+      if (isStudentCaller) {
+        const safeUserId = sanitizeSearchQuery(session.user.id);
+        const safeNis = sanitizeSearchQuery(session.user.nis);
+        if (safeNis) {
+          query = query.or(`profile_id.eq.${safeUserId},nis.eq.${safeNis}`);
+        } else {
+          query = query.eq("profile_id", safeUserId);
+        }
+      }
 
       if (className && className !== "all") {
         query = query.eq("class_name", className);
@@ -381,7 +258,13 @@ export async function getStudentsAction(
         });
 
         // Search filtering in memory if joined profile search is needed
-        let finalItems = items;
+        let finalItems = isStudentCaller
+          ? items.filter(
+              (st) =>
+                st.profileId === session.user.id ||
+                (session.user.nis && st.nis === session.user.nis)
+            )
+          : items;
         if (search.trim()) {
           const s = search.toLowerCase();
           finalItems = finalItems.filter(
@@ -407,7 +290,7 @@ export async function getStudentsAction(
           }
         }
 
-        const totalItems = count || finalItems.length;
+        const totalItems = isStudentCaller ? finalItems.length : (count || finalItems.length);
         const startIndex = (page - 1) * pageSize;
         const paginated = finalItems.slice(startIndex, startIndex + pageSize);
 
@@ -424,8 +307,24 @@ export async function getStudentsAction(
     }
   }
 
-  // Filter in-memory fallback list
-  let filtered = [...INITIAL_STUDENTS];
+  // Filter in-memory fallback list (Development mode only)
+  if (process.env.NODE_ENV !== "development") {
+    return {
+      items: [],
+      totalItems: 0,
+      page,
+      pageSize,
+      totalPages: 1,
+    };
+  }
+
+  let filtered = isStudentCaller
+    ? INITIAL_STUDENTS.filter(
+        (st) =>
+          st.profileId === session.user.id ||
+          (session.user.nis && st.nis === session.user.nis)
+      )
+    : [...INITIAL_STUDENTS];
 
   if (search.trim()) {
     const s = search.toLowerCase();
@@ -547,6 +446,9 @@ export async function addStudentAction(
           email: data.email,
           password: initialPassword,
           email_confirm: true,
+          app_metadata: {
+            role: "siswa",
+          },
           user_metadata: {
             full_name: data.fullName,
             role: "student",
@@ -949,4 +851,187 @@ export async function applyStudentViolationPoints(
     newPoints,
     newStatus,
   };
+}
+
+// -------------------------------------------------------------
+// PUBLIC STUDENT DISCIPLINE SEARCH ACTION (WITHOUT LOGIN)
+// -------------------------------------------------------------
+
+export interface PublicStudentSearchResult {
+  id: string;
+  nis: string;
+  nisn: string;
+  fullName: string;
+  className: string;
+  totalViolationPoints: number;
+  totalMeritPoints: number;
+  status: string;
+  statusColor: "emerald" | "amber" | "orange" | "rose";
+  recentViolations: {
+    id: string;
+    incidentDate: string;
+    violationName: string;
+    points: number;
+    reportedBy: string;
+  }[];
+}
+
+export async function searchStudentPublicAction(
+  query: string
+): Promise<PublicStudentSearchResult | null> {
+  if (!query || typeof query !== "string") return null;
+
+  // 1. Normalize: trim()
+  const rawTrimmed = query.trim();
+  if (rawTrimmed.length < 2 || rawTrimmed.length > 80) return null;
+
+  // 2. Reject malformed payloads early
+  // Disallow SQL operators, control characters, PostgREST delimiters, or comment syntax
+  const MALFORMED_PAYLOAD_PATTERN = /[;(),<>=+*`~$^|&{}\\[\]"\\%]|--|\/\*|\*\//;
+  if (MALFORMED_PAYLOAD_PATTERN.test(rawTrimmed)) {
+    return null;
+  }
+
+  // 3. Normalize: lowercase()
+  const normalized = rawTrimmed.toLowerCase();
+
+  // 4. Apply sanitizeSearchQuery() before ilike() and or()
+  const clean = sanitizeSearchQuery(normalized);
+  if (clean.length < 2) return null;
+
+  if (isSupabaseLive()) {
+    try {
+      const supabase = process.env.SUPABASE_SERVICE_ROLE_KEY
+        ? createAdminClient()
+        : await createClient();
+
+      // Search student by NIS, NISN, or full_name
+      // Query 1: Direct search on students table matching NIS or NISN
+      const { data: students } = await supabase
+        .from("students")
+        .select(
+          `
+          id,
+          nis,
+          nisn,
+          class_name,
+          total_violation_points,
+          total_merit_points,
+          status,
+          profiles:profile_id (full_name)
+        `
+        )
+        .or(`nis.ilike.%${clean}%,nisn.ilike.%${clean}%`)
+        .limit(5);
+
+      let matchedStudent: any = students && students.length > 0 ? students[0] : null;
+
+      // Query 2: If not found by nis/nisn, search profiles by full_name (case-insensitive & partial match)
+      if (!matchedStudent) {
+        const { data: profileMatches } = await supabase
+          .from("profiles")
+          .select(
+            "id, full_name, students(id, nis, nisn, class_name, total_violation_points, total_merit_points, status)"
+          )
+          .ilike("full_name", `%${clean}%`)
+          .limit(5);
+
+        if (profileMatches && profileMatches.length > 0) {
+          for (const match of profileMatches) {
+            const rawStudent = (match as any).students;
+            const studentObj = Array.isArray(rawStudent) ? rawStudent[0] : rawStudent;
+            if (studentObj?.id) {
+              matchedStudent = {
+                id: studentObj.id,
+                nis: studentObj.nis,
+                nisn: studentObj.nisn,
+                class_name: studentObj.class_name,
+                total_violation_points: studentObj.total_violation_points,
+                total_merit_points: studentObj.total_merit_points,
+                status: studentObj.status,
+                profiles: { full_name: match.full_name },
+              };
+              break;
+            }
+          }
+        }
+      }
+
+      if (matchedStudent) {
+        const points = Number(matchedStudent.total_violation_points || 0);
+        const levelConfig = getDisciplinaryLevel(points);
+        const fullName =
+          (matchedStudent.profiles as any)?.full_name || "Siswa SMAN 2 Pangkep";
+
+        // Fetch recent violations for this student
+        const { data: violations } = await supabase
+          .from("student_violations")
+          .select(
+            `
+            id,
+            incident_date,
+            points,
+            violation_types:violation_type_id (name),
+            teachers:reported_by (profiles:profile_id (full_name))
+          `
+          )
+          .eq("student_id", matchedStudent.id)
+          .neq("status", "cancelled")
+          .order("incident_date", { ascending: false })
+          .limit(3);
+
+        const recentViolations = (violations || []).map((v: any) => ({
+          id: v.id,
+          incidentDate: v.incident_date,
+          violationName: v.violation_types?.name || "Pelanggaran Tata Tertib",
+          points: Number(v.points || 0),
+          reportedBy: v.teachers?.profiles?.full_name || "Guru Sekolah",
+        }));
+
+        return {
+          id: matchedStudent.id,
+          nis: matchedStudent.nis || "-",
+          nisn: matchedStudent.nisn || "-",
+          fullName,
+          className: matchedStudent.class_name || "Kelas Tidak Diketahui",
+          totalViolationPoints: points,
+          totalMeritPoints: Number(matchedStudent.total_merit_points || 0),
+          status: levelConfig.level,
+          statusColor: levelConfig.badgeColor,
+          recentViolations,
+        };
+      }
+    } catch (err) {
+      console.warn("Public student search error:", err);
+    }
+  }
+
+  // Fallback lookup only permitted in development mode when Supabase is not configured
+  if (process.env.NODE_ENV === "development" && !isSupabaseLive()) {
+    const s = clean.toLowerCase();
+    const matched = INITIAL_STUDENTS.find(
+      (st) =>
+        st.fullName.toLowerCase().includes(s) ||
+        st.nis.includes(s) ||
+        st.nisn.includes(s)
+    );
+
+    if (matched) {
+      const levelConfig = getDisciplinaryLevel(matched.totalViolationPoints);
+      return {
+        id: matched.id,
+        nis: matched.nis,
+        nisn: matched.nisn,
+        fullName: matched.fullName,
+        className: matched.className,
+        totalViolationPoints: matched.totalViolationPoints,
+        totalMeritPoints: matched.totalMeritPoints || 0,
+        status: levelConfig.level,
+        statusColor: levelConfig.badgeColor,
+        recentViolations: [],
+      };
+    }
+  }
+
+  return null;
 }

@@ -1,0 +1,59 @@
+{
+  "id": "berita-acara-konseling",
+  "title": "Berita Acara Pelaksanaan Konseling & Pemanggilan Wali",
+  "category": "counseling",
+  "version": "1.0.0",
+  "header": {
+    "governmentAgency": "{{header_gov_agency}}",
+    "educationDepartment": "{{header_edu_dept}}",
+    "institutionName": "{{header_institution_name}}",
+    "addressLine": "{{header_address}}",
+    "contactLine": "{{header_contact}}",
+    "leftEmblemPlaceholder": "SMADAP",
+    "rightEmblemPlaceholder": "PANGKEP"
+  },
+  "metadata": {
+    "referenceNumber": "{{letter_number}}",
+    "attachment": "-",
+    "subject": "Berita Acara Pertemuan Konseling Siswa & Orang Tua/Wali",
+    "dateLocation": "{{date_location}}"
+  },
+  "recipient": {
+    "salutation": "",
+    "addressee": "BERITA ACARA LAYANAN BIMBINGAN KONSELING",
+    "location": ""
+  },
+  "opening": [
+    "Pada hari ini {{scheduled_date_formatted}}, bertempat di {{meeting_location}}, telah dilaksanakan sesi bimbingan konseling dan penanganan disiplin peserta didik antara pihak sekolah dengan orang tua/wali siswa sebagai berikut:"
+  ],
+  "studentInfoSections": [
+    { "label": "Nama Siswa", "value": "{{student_name}}" },
+    { "label": "NISN / NIS", "value": "{{student_nisn}} / {{student_nis}}" },
+    { "label": "Kelas", "value": "{{student_class}}" },
+    { "label": "Status Disiplin", "value": "{{discipline_status}}" },
+    { "label": "Poin Efektif", "value": "{{effective_points}} Poin" }
+  ],
+  "invitationIntro": "Rincian Pelaksanaan Sesi Konseling:",
+  "meetingSchedule": [
+    { "label": "Agenda Konseling", "value": "{{call_purpose}}" },
+    { "label": "Waktu Pelaksanaan", "value": "{{scheduled_time}} WITA" },
+    { "label": "Tempat", "value": "{{meeting_location}}" }
+  ],
+  "notesIntro": "Kesepakatan & Hasil Pertemuan:",
+  "notes": "{{additional_notes}}",
+  "closing": [
+    "Demikian berita acara ini dibuat dengan sebenarnya dalam rangkap secukupnya untuk dipergunakan sebagaimana mestinya."
+  ],
+  "signatures": {
+    "left": {
+      "role": "Orang Tua / Wali Siswa,",
+      "placeholderName": "( .................................................... )",
+      "caption": "Tanda Tangan & Nama Terang"
+    },
+    "right": {
+      "role": "Guru Pembimbing / Konselor (BK),",
+      "name": "{{counselor_name}}",
+      "identifier": "NIP. {{counselor_nip}}"
+    }
+  }
+}

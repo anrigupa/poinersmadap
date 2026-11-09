@@ -252,10 +252,20 @@ export default function LandingPage() {
             >
               <div className="flex items-start justify-between">
                 <span className="text-4xl sm:text-[42px] font-light tracking-tight text-white drop-shadow-sm leading-none">
-                  98<span className="text-2xl font-normal">%</span>
+                  {isLoadingStats ? (
+                    <span className="opacity-70 text-2xl font-normal">--%</span>
+                  ) : (
+                    <>
+                      {siswaTertibStats.percentage}
+                      <span className="text-2xl font-normal">%</span>
+                    </>
+                  )}
                 </span>
                 <span className="px-2.5 py-1 rounded-full bg-white/50 text-[10px] font-semibold text-slate-700 flex items-center gap-1 shadow-2xs">
-                  <TrendingUp className="w-3 h-3 text-blue-600" /> +12%
+                  <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                  {isLoadingStats
+                    ? "Memuat..."
+                    : `${siswaTertibStats.totalSiswaTertib} Siswa Tertib`}
                 </span>
               </div>
 

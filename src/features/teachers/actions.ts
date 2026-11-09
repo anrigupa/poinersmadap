@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentSession } from "@/features/auth/actions/authActions";
+import { requireRole, assertRole, sanitizeSearchQuery } from "@/lib/security/guards";
 import {
   TeacherItem,
   TeacherFilter,
@@ -28,100 +29,8 @@ async function checkAdminAccess<T = any>(actionName: string): Promise<ActionResp
   return null;
 }
 
-// In-memory state for initial demo / zero-config development
-let INITIAL_TEACHERS: TeacherItem[] = [
-  {
-    id: "tch-1",
-    profileId: "usr-guru-01",
-    nip: "198504122010012003",
-    fullName: "Siti Rahmawati, S.Pd",
-    email: "guru.bk@smadap.sch.id",
-    teacher_type: "counselor",
-    specialization: "guru_bk",
-    assignedClass: "Wali Kelas XI MIPA 2",
-    phoneNumber: "081234567890",
-    status: "active",
-    createdAt: "2024-07-15",
-  },
-  {
-    id: "tch-2",
-    profileId: "usr-guru-02",
-    nip: "197808202005011004",
-    fullName: "Drs. Joko Susilo, M.Pd",
-    email: "joko.susilo@smadap.sch.id",
-    teacher_type: "teacher",
-    specialization: "guru_piket",
-    assignedClass: "Wali Kelas XII IPS 1",
-    phoneNumber: "081234567891",
-    status: "active",
-    createdAt: "2024-07-16",
-  },
-  {
-    id: "tch-3",
-    profileId: "usr-guru-03",
-    nip: "199003152019032008",
-    fullName: "Ahmad Fauzi, S.Pd",
-    email: "ahmad.fauzi@smadap.sch.id",
-    teacher_type: "teacher",
-    specialization: "wali_kelas",
-    assignedClass: "Wali Kelas X MIPA 1",
-    phoneNumber: "081234567892",
-    status: "active",
-    createdAt: "2024-07-18",
-  },
-  {
-    id: "tch-4",
-    profileId: "usr-guru-04",
-    nip: "198711222014022005",
-    fullName: "Dewi Lestari, S.Pd",
-    email: "dewi.lestari@smadap.sch.id",
-    teacher_type: "teacher",
-    specialization: "guru_mapel",
-    assignedClass: null,
-    phoneNumber: "081234567893",
-    status: "active",
-    createdAt: "2024-07-20",
-  },
-  {
-    id: "tch-5",
-    profileId: "usr-guru-05",
-    nip: "198205102008011012",
-    fullName: "Budi Kurniawan, M.Kom",
-    email: "budi.kurniawan@smadap.sch.id",
-    teacher_type: "teacher",
-    specialization: "wali_kelas",
-    assignedClass: "Wali Kelas XI RPL 1",
-    phoneNumber: "081234567894",
-    status: "active",
-    createdAt: "2024-07-22",
-  },
-  {
-    id: "tch-6",
-    profileId: "usr-guru-06",
-    nip: "199307042022032014",
-    fullName: "Nurul Hidayah, S.Pd",
-    email: "nurul.hidayah@smadap.sch.id",
-    teacher_type: "counselor",
-    specialization: "guru_bk",
-    assignedClass: "Konseling Kelas X",
-    phoneNumber: "081234567895",
-    status: "active",
-    createdAt: "2024-07-25",
-  },
-  {
-    id: "tch-7",
-    profileId: "usr-guru-07",
-    nip: "198906182015021009",
-    fullName: "Hendra Wijaya, S.Psi",
-    email: "hendra.wijaya@smadap.sch.id",
-    teacher_type: "counselor",
-    specialization: "guru_bk",
-    assignedClass: "Konseling Kelas XII",
-    phoneNumber: "081345678901",
-    status: "active",
-    createdAt: "2024-07-28",
-  },
-];
+// Clean empty initial state (all data derived strictly from Supabase PostgreSQL)
+let INITIAL_TEACHERS: TeacherItem[] = [];
 
 function isSupabaseLive(): boolean {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -139,6 +48,16 @@ function isSupabaseLive(): boolean {
 export async function getTeachersAction(
   filter: TeacherFilter = {}
 ): Promise<PaginatedResult<TeacherItem>> {
+  // Enforce authenticated staff role (CRITICAL-02 remediation)
+  const session = await requireRole(["admin", "guru"]);
+  assertRole(session, ["admin", "guru"], "mengakses direktori data guru");
+
+  return await queryTeachersInternal(filter);
+}
+
+async function queryTeachersInternal(
+  filter: TeacherFilter = {}
+): Promise<PaginatedResult<TeacherItem>> {
   const {
     search = "",
     teacher_type,
@@ -148,6 +67,8 @@ export async function getTeachersAction(
     sortBy = "fullName",
     sortOrder = "asc",
   } = filter;
+
+  const safeSearch = sanitizeSearchQuery(search);
 
   if (isSupabaseLive()) {
     try {
@@ -175,8 +96,8 @@ export async function getTeachersAction(
         query = query.eq("specialization", specialization);
       }
 
-      if (search.trim()) {
-        query = query.or(`nip.ilike.%${search}%,assigned_class.ilike.%${search}%`);
+      if (safeSearch) {
+        query = query.or(`nip.ilike.%${safeSearch}%,assigned_class.ilike.%${safeSearch}%`);
       }
 
       const from = (page - 1) * pageSize;
@@ -214,8 +135,8 @@ export async function getTeachersAction(
           fallbackQuery = fallbackQuery.eq("specialization", specialization);
         }
 
-        if (search.trim()) {
-          fallbackQuery = fallbackQuery.or(`nip.ilike.%${search}%,assigned_class.ilike.%${search}%`);
+        if (safeSearch) {
+          fallbackQuery = fallbackQuery.or(`nip.ilike.%${safeSearch}%,assigned_class.ilike.%${safeSearch}%`);
         }
 
         const fallbackRes = await fallbackQuery
@@ -279,7 +200,17 @@ export async function getTeachersAction(
     }
   }
 
-  // Filter in-memory fallback list
+  // Filter in-memory fallback list (Development mode only)
+  if (process.env.NODE_ENV !== "development") {
+    return {
+      items: [],
+      totalItems: 0,
+      page,
+      pageSize,
+      totalPages: 1,
+    };
+  }
+
   let filtered = [...INITIAL_TEACHERS];
 
   if (search.trim()) {
@@ -333,7 +264,7 @@ export async function getTeachersAction(
 // -------------------------------------------------------------
 
 export async function getCounselorTeachersAction(): Promise<PublicCounselorContact[]> {
-  const result = await getTeachersAction({
+  const result = await queryTeachersInternal({
     teacher_type: "counselor",
     pageSize: 100,
     sortBy: "fullName",
@@ -409,6 +340,10 @@ export async function addTeacherAction(
           email,
           password: defaultPassword,
           email_confirm: true,
+          app_metadata: {
+            role: "guru",
+            teacher_type: resolvedTeacherType,
+          },
           user_metadata: {
             full_name: fullName,
             role: "teacher",
@@ -676,18 +611,38 @@ export async function deleteTeacherAction(
     try {
       const supabase = process.env.SUPABASE_SERVICE_ROLE_KEY ? createAdminClient() : await createClient();
 
-      // Delete from teachers table
-      await supabase.from("teachers").delete().eq("id", id);
-      // Delete from profiles table
-      await supabase.from("profiles").delete().eq("id", profileId);
+      // 1. Delete from teachers table
+      const { error: teacherErr } = await supabase.from("teachers").delete().eq("id", id);
+      if (teacherErr) throw new Error(teacherErr.message);
 
+      // 2. Delete from profiles table
+      const { error: profileErr } = await supabase.from("profiles").delete().eq("id", profileId);
+      if (profileErr) throw new Error(profileErr.message);
+
+      // 3. Delete user account from Supabase Auth (auth.users)
+      if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        try {
+          const { error: authDeleteErr } = await (supabase as any).auth.admin.deleteUser(profileId);
+          if (authDeleteErr) {
+            console.warn("Supabase auth delete user warning:", authDeleteErr.message);
+          }
+        } catch (authErr) {
+          console.warn("Failed to delete user from auth.users:", authErr);
+        }
+      }
+
+      INITIAL_TEACHERS = INITIAL_TEACHERS.filter((t) => t.id !== id);
       revalidatePath("/admin/teachers");
       return {
         success: true,
         message: "Data guru dan akun otentikasi berhasil dihapus.",
       };
-    } catch (err) {
-      console.warn("Supabase delete teacher error:", err);
+    } catch (err: any) {
+      console.warn("Supabase delete teacher error:", err.message || err);
+      return {
+        success: false,
+        message: `Gagal menghapus data guru: ${err.message || "Terjadi kesalahan database"}`,
+      };
     }
   }
 

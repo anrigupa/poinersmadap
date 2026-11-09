@@ -1,6 +1,6 @@
 import { signOutAction } from "@/features/auth/actions/authActions";
 import { UserProfile } from "@/types/auth";
-import { LogOut, ShieldCheck, User } from "lucide-react";
+import { LogOut, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 
 interface DashboardHeaderProps {

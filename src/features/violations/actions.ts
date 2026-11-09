@@ -89,7 +89,8 @@ export async function recordStudentViolationAction(
   // 5. CALCULATE POINTS & DETERMINE STATUS ESCALATION
   // -----------------------------------------------------------
   const previousPoints = student.totalViolationPoints;
-  const addedPoints = data.points || rule.points;
+  // Always enforce authoritative rule points from the database catalogue (MEDIUM-01)
+  const addedPoints = rule.points;
   const newTotalPoints = previousPoints + addedPoints;
   const previousStatus = student.status;
 
@@ -333,7 +334,11 @@ export async function getTopViolationsAction(): Promise<TopViolationItem[]> {
     }
   }
 
-  // Fallback demo violations if Supabase connection is offline
+  // Fallback demo violations only in development mode
+  if (process.env.NODE_ENV !== "development") {
+    return [];
+  }
+
   return [
     {
       ranking: 1,

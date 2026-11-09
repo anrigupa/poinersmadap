@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentSession } from "@/features/auth/actions/authActions";
+import { sanitizeSearchQuery } from "@/lib/security/guards";
 import {
   ViolationCategory,
   ViolationItem,
@@ -28,168 +29,9 @@ async function checkAdminAccess<T = any>(actionName: string): Promise<ActionResp
   return null;
 }
 
-// In-memory persistent state for zero-config / offline development
-let INITIAL_CATEGORIES: ViolationCategory[] = [
-  {
-    id: "cat-1",
-    name: "Ringan",
-    severityLevel: 1,
-    description: "Pelanggaran kedisiplinan dan kerapian skala minor",
-    colorCode: "#3b82f6", // Blue
-    itemCount: 4,
-  },
-  {
-    id: "cat-2",
-    name: "Sedang",
-    severityLevel: 2,
-    description: "Pelanggaran tata tertib pembelajaran & fasilitas sekolah",
-    colorCode: "#f59e0b", // Amber
-    itemCount: 4,
-  },
-  {
-    id: "cat-3",
-    name: "Berat",
-    severityLevel: 3,
-    description: "Pelanggaran moralitas, keamanan, dan norma hukum",
-    colorCode: "#ef4444", // Red
-    itemCount: 3,
-  },
-];
-
-let INITIAL_VIOLATIONS: ViolationItem[] = [
-  {
-    id: "v-1",
-    categoryId: "cat-1",
-    categoryName: "Ringan",
-    categoryColor: "#3b82f6",
-    code: "K-01",
-    name: "Terlambat Masuk Sekolah",
-    description: "Hadir melewati batas waktu bel masuk (07.00 WIB) lebih dari 10 menit tanpa surat izin piket.",
-    points: 5,
-    sanctionRecommendation: "Teguran lisan & pembersihan area literasi sekolah",
-    isActive: true,
-  },
-  {
-    id: "v-2",
-    categoryId: "cat-1",
-    categoryName: "Ringan",
-    categoryColor: "#3b82f6",
-    code: "K-02",
-    name: "Atribut Seragam Tidak Lengkap",
-    description: "Tidak mengenakan dasi, sabuk sekolah, topi upacara, atau kaos kaki tidak sesuai aturan hari.",
-    points: 5,
-    sanctionRecommendation: "Pembinaan oleh Guru Piket",
-    isActive: true,
-  },
-  {
-    id: "v-3",
-    categoryId: "cat-1",
-    categoryName: "Ringan",
-    categoryColor: "#3b82f6",
-    code: "K-03",
-    name: "Rambut Tidak Rapi / Pewarnaan",
-    description: "Panjang rambut siswa putra melebihi kerah kemeja atau dicat warna di luar hitam natural.",
-    points: 10,
-    sanctionRecommendation: "Pemotongan rapi dalam tenggat 2x24 jam",
-    isActive: true,
-  },
-  {
-    id: "v-4",
-    categoryId: "cat-1",
-    categoryName: "Ringan",
-    categoryColor: "#3b82f6",
-    code: "K-04",
-    name: "Membuang Sampah Sembarangan",
-    description: "Membuang bungkus makanan atau botol minuman di luar tempat sampah yang telah disediakan.",
-    points: 5,
-    sanctionRecommendation: "Operasi semut kebersihan lingkungan sekolah",
-    isActive: true,
-  },
-  {
-    id: "v-5",
-    categoryId: "cat-2",
-    categoryName: "Sedang",
-    categoryColor: "#f59e0b",
-    code: "S-01",
-    name: "Membolos Jam Pelajaran",
-    description: "Keluar dari kelas saat Kegiatan Belajar Mengajar (KBM) berlangsung tanpa izin guru pengampu.",
-    points: 15,
-    sanctionRecommendation: "Pemberitahuan kepada orang tua & pembinaan Wali Kelas",
-    isActive: true,
-  },
-  {
-    id: "v-6",
-    categoryId: "cat-2",
-    categoryName: "Sedang",
-    categoryColor: "#f59e0b",
-    code: "S-02",
-    name: "Merusak Sarana & Fasilitas Sekolah",
-    description: "Mencoret-coret meja/dinding, mematahkan kursi, atau merusak alat laboratorium secara sengaja.",
-    points: 25,
-    sanctionRecommendation: "Ganti rugi perbaikan fasilitas & surat pernyataan bermaterai",
-    isActive: true,
-  },
-  {
-    id: "v-7",
-    categoryId: "cat-2",
-    categoryName: "Sedang",
-    categoryColor: "#f59e0b",
-    code: "S-03",
-    name: "Membawa / Merokok di Lingkungan Sekolah",
-    description: "Menghisap atau membawa rokok konvensional maupun rokok elektrik (vape) di lingkungan sekolah.",
-    points: 25,
-    sanctionRecommendation: "Penyitaan barang bukti, pemanggilan orang tua, dan pembinaan BK",
-    isActive: true,
-  },
-  {
-    id: "v-8",
-    categoryId: "cat-2",
-    categoryName: "Sedang",
-    categoryColor: "#f59e0b",
-    code: "S-04",
-    name: "Menggunakan Ponsel Saat KBM Tanpa Izin",
-    description: "Bermain game, membuka media sosial, atau aktivitas non-edukasi saat proses pembelajaran.",
-    points: 10,
-    sanctionRecommendation: "Penyitaan ponsel oleh Wali Kelas selama 3 hari",
-    isActive: true,
-  },
-  {
-    id: "v-9",
-    categoryId: "cat-3",
-    categoryName: "Berat",
-    categoryColor: "#ef4444",
-    code: "B-01",
-    name: "Perundungan (Bullying) Fisik / Verbal",
-    description: "Melakukan kekerasan fisik, pemalakan, ancaman, atau intimidasi psikologis terhadap sesama siswa.",
-    points: 50,
-    sanctionRecommendation: "Surat Peringatan (SP2), skorsing 3 hari, dan konseling intensif BK",
-    isActive: true,
-  },
-  {
-    id: "v-10",
-    categoryId: "cat-3",
-    categoryName: "Berat",
-    categoryColor: "#ef4444",
-    code: "B-02",
-    name: "Perkelahian / Tawuran Antar Pelajar",
-    description: "Terlibat kontak fisik kekerasan antarsiswa atau antarlembaga sekolah baik di dalam maupun luar.",
-    points: 75,
-    sanctionRecommendation: "Surat Peringatan Terakhir (SP3) & rapat komite pertimbangan kelulusan",
-    isActive: true,
-  },
-  {
-    id: "v-11",
-    categoryId: "cat-3",
-    categoryName: "Berat",
-    categoryColor: "#ef4444",
-    code: "B-03",
-    name: "Narkoba & Minuman Beralkohol",
-    description: "Membawa, mengonsumsi, atau mengedarkan zat terlarang narkotika, obat berbahaya, atau miras.",
-    points: 100,
-    sanctionRecommendation: "Pengembalian siswa kepada orang tua (Dikeluarkan dari sekolah)",
-    isActive: true,
-  },
-];
+// Clean empty initial state (all data derived strictly from Supabase PostgreSQL)
+let INITIAL_CATEGORIES: ViolationCategory[] = [];
+let INITIAL_VIOLATIONS: ViolationItem[] = [];
 
 // Helper to check live Supabase connection
 function isSupabaseLive(): boolean {
@@ -229,7 +71,11 @@ export async function getCategoriesAction(): Promise<ViolationCategory[]> {
     }
   }
 
-  // Fallback with live count computation
+  // Fallback with live count computation (Development mode only)
+  if (process.env.NODE_ENV !== "development") {
+    return [];
+  }
+
   return INITIAL_CATEGORIES.map((cat) => ({
     ...cat,
     itemCount: INITIAL_VIOLATIONS.filter((v) => v.categoryId === cat.id).length,
@@ -439,8 +285,9 @@ export async function getViolationsAction(
         { count: "exact" }
       );
 
-      if (search.trim()) {
-        query = query.or(`name.ilike.%${search}%,code.ilike.%${search}%,description.ilike.%${search}%`);
+      const safeSearch = sanitizeSearchQuery(search.trim()).toLowerCase();
+      if (safeSearch) {
+        query = query.or(`name.ilike.%${safeSearch}%,code.ilike.%${safeSearch}%,description.ilike.%${safeSearch}%`);
       }
       if (categoryId && categoryId !== "all") {
         query = query.eq("category_id", categoryId);
@@ -487,7 +334,17 @@ export async function getViolationsAction(
     }
   }
 
-  // Filter in-memory fallback list
+  // Filter in-memory fallback list (Development mode only)
+  if (process.env.NODE_ENV !== "development") {
+    return {
+      items: [],
+      totalItems: 0,
+      page,
+      pageSize,
+      totalPages: 1,
+    };
+  }
+
   let filtered = [...INITIAL_VIOLATIONS];
 
   if (search.trim()) {

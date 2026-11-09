@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentSession } from "@/features/auth/actions/authActions";
+import { sanitizeSearchQuery } from "@/lib/security/guards";
 import { UserProfile } from "@/types/auth";
 import {
   TeacherViolationRecord,
@@ -410,7 +411,26 @@ export async function getTeacherDashboardData(
     }
   }
 
-  // Fallback: STRICT PERSONAL ISOLATION
+  // Fallback: STRICT PERSONAL ISOLATION (Development mode only)
+  if (process.env.NODE_ENV !== "development") {
+    return {
+      stats: {
+        violationsToday: 0,
+        violationsThisMonth: 0,
+        totalPersonalSubmissions: 0,
+        totalPointsAccrued: 0,
+        studentsHandledCount: 0,
+      },
+      recentSubmissions: {
+        items: [],
+        totalItems: 0,
+        page,
+        pageSize,
+        totalPages: 1,
+      },
+    };
+  }
+
   // Teacher can ONLY access records where reportedById === effectiveTeacherId or session identifiers
   const personalRecords = TEACHER_VIOLATION_RECORDS.filter(
     (r) =>
@@ -563,6 +583,17 @@ export async function addTeacherViolationAction(
         };
       }
 
+      // Resolve canonical rule points from violation_types table to prevent client point tampering (MEDIUM-01)
+      let canonicalPoints = data.points;
+      const { data: ruleRow } = await supabase
+        .from("violation_types")
+        .select("points")
+        .eq("id", data.violationTypeId)
+        .maybeSingle();
+      if (ruleRow && typeof ruleRow.points === "number" && ruleRow.points > 0) {
+        canonicalPoints = ruleRow.points;
+      }
+
       // 1. Insert into student_violations table strictly tagged with teachers.id
       const { data: newViolation, error: vError } = await supabase
         .from("student_violations")
@@ -570,7 +601,7 @@ export async function addTeacherViolationAction(
           student_id: data.studentId,
           violation_type_id: data.violationTypeId,
           reported_by: teacherDbId, // Strictly teachers.id! Never profile_id
-          points: data.points,
+          points: canonicalPoints,
           notes: data.notes,
           evidence_url: data.evidenceUrl || null,
           incident_date: data.incidentDate,
@@ -600,7 +631,7 @@ export async function addTeacherViolationAction(
         };
       }
 
-      const newTotal = (currentStudent.total_violation_points || 0) + data.points;
+      const newTotal = (currentStudent.total_violation_points || 0) + canonicalPoints;
       const levelConfig = getDisciplinaryLevel(newTotal);
       const newStatus =
         levelConfig.level === "Aman"
@@ -710,15 +741,28 @@ export async function addTeacherViolationAction(
 export async function getHomeroomClassDataAction(
   userId?: string
 ): Promise<HomeroomClassData> {
-  const session = await getCurrentSession();
-  const effectiveUserId = userId || session?.user?.id;
-
   const defaultEmptySummary: HomeroomDisciplineSummary = {
     totalStudents: 0,
     studentsWithoutViolations: 0,
     studentsWithViolations: 0,
     averageViolationPoints: 0,
   };
+
+  const session = await getCurrentSession();
+  if (!session || (session.user.role !== "guru" && session.user.role !== "admin")) {
+    return {
+      isHomeroom: false,
+      assignedClass: null,
+      message: "Akses hanya dimiliki oleh wali kelas.",
+      summary: defaultEmptySummary,
+      students: [],
+    };
+  }
+
+  // Prevent userId parameter tampering (HIGH-03): only Admin may inspect another teacher's homeroom class
+  const effectiveUserId = sanitizeSearchQuery(
+    session.user.role === "admin" && userId ? userId : session.user.id
+  );
 
   if (!effectiveUserId) {
     return {

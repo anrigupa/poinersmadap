@@ -14,6 +14,8 @@ export interface CounselingRecordItem {
   counselorName: string;
   counselingType: string;
   description: string;
+  notes?: string;
+  status?: string;
   counselingDate: string;
   pointReduction: number;
   previousPoints: number;
@@ -79,7 +81,9 @@ export interface CoachingStudentItem {
   id: string;
   studentName: string;
   studentNis: string;
+  studentNisn: string;
   className: string;
+  totalViolations: number;
   totalViolationPoints: number;
   totalReductionPoints: number;
   effectivePoints: number;

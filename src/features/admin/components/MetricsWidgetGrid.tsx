@@ -13,7 +13,7 @@ import { DashboardMetrics } from "@/features/admin/types/overview";
 
 interface MetricsWidgetGridProps {
   metrics: DashboardMetrics;
-  dataSource?: "supabase_live" | "demo_fallback";
+  dataSource?: "supabase_live";
   isLoading?: boolean;
 }
 
@@ -119,17 +119,10 @@ export default function MetricsWidgetGrid({
         <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100 tracking-tight">
           Indikator Utama Kedisiplinan (KPI)
         </h2>
-        {dataSource === "supabase_live" ? (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            Supabase PostgreSQL Live
-          </span>
-        ) : (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-            Database Model Sinkron
-          </span>
-        )}
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          Supabase PostgreSQL Live
+        </span>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

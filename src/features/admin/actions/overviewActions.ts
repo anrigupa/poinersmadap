@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireRole, assertRole } from "@/lib/security/guards";
 import { getDisciplinaryLevel } from "@/lib/constants/discipline";
 import { getSystemSettingsAction } from "@/features/settings/actions";
 import {
@@ -12,337 +13,6 @@ import {
   TopStudentStat,
   RecentViolationActivity,
 } from "@/features/admin/types/overview";
-
-/**
- * Realistic default fallback dataset representing active semester metrics
- * for SMAN 2 PANGKEP when Supabase tables are empty or initializing.
- */
-const FALLBACK_OVERVIEW_DATA: AdminOverviewData = {
-  metrics: {
-    totalStudents: 1042,
-    totalTeachers: 64,
-    totalViolations: 148,
-    totalViolationPoints: 1700,
-    studentsWithViolations: 86,
-    monthlyViolations: 28,
-    previousMonthViolations: 32,
-    monthlyChangePercentage: -12.5,
-    studentTrend: "+4.2% thn ajaran baru",
-    monthlyViolationTrend: {
-      value: -12.5,
-      isPositive: true, // violation count decreased, which is good
-      label: "Turun 12.5% dibanding bulan lalu",
-    },
-  },
-  monthlyStats: [
-    { month: "Jul", fullMonthName: "Juli", count: 18, points: 195 },
-    { month: "Agu", fullMonthName: "Agustus", count: 32, points: 340 },
-    { month: "Sep", fullMonthName: "September", count: 26, points: 280 },
-    { month: "Okt", fullMonthName: "Oktober", count: 35, points: 410 },
-    { month: "Nov", fullMonthName: "November", count: 28, points: 295 },
-    { month: "Des", fullMonthName: "Desember", count: 9, points: 180 },
-  ],
-  categoryStats: [
-    {
-      categoryName: "Ringan",
-      count: 94,
-      points: 470,
-      colorCode: "#3b82f6", // Blue
-      percentage: 63.5,
-    },
-    {
-      categoryName: "Sedang",
-      count: 42,
-      points: 630,
-      colorCode: "#f59e0b", // Amber
-      percentage: 28.4,
-    },
-    {
-      categoryName: "Berat",
-      count: 12,
-      points: 600,
-      colorCode: "#ef4444", // Red
-      percentage: 8.1,
-    },
-  ],
-  topViolations: [
-    {
-      id: "tv-1",
-      code: "K-01",
-      name: "Terlambat hadir di sekolah lebih dari 10 menit",
-      categoryName: "Ringan",
-      pointsPerIncident: 5,
-      count: 42,
-      totalPoints: 210,
-      percentage: 28.4,
-    },
-    {
-      id: "tv-2",
-      code: "K-02",
-      name: "Atribut seragam sekolah tidak lengkap (Dasi/Sabuk/Lokasi)",
-      categoryName: "Ringan",
-      pointsPerIncident: 5,
-      count: 29,
-      totalPoints: 145,
-      percentage: 19.6,
-    },
-    {
-      id: "tv-3",
-      code: "S-01",
-      name: "Meninggalkan kelas pada jam pelajaran tanpa izin (Bolos)",
-      categoryName: "Sedang",
-      pointsPerIncident: 15,
-      count: 19,
-      totalPoints: 285,
-      percentage: 12.8,
-    },
-    {
-      id: "tv-4",
-      code: "K-04",
-      name: "Tidak mengikuti upacara bendera tanpa keterangan sah",
-      categoryName: "Ringan",
-      pointsPerIncident: 10,
-      count: 14,
-      totalPoints: 140,
-      percentage: 9.5,
-    },
-    {
-      id: "tv-5",
-      code: "S-03",
-      name: "Menggunakan smartphone saat KBM tanpa instruksi guru",
-      categoryName: "Sedang",
-      pointsPerIncident: 15,
-      count: 12,
-      totalPoints: 180,
-      percentage: 8.1,
-    },
-    {
-      id: "tv-6",
-      code: "K-03",
-      name: "Ukuran / model rambut tidak sesuai ketentuan tata tertib",
-      categoryName: "Ringan",
-      pointsPerIncident: 5,
-      count: 9,
-      totalPoints: 45,
-      percentage: 6.1,
-    },
-    {
-      id: "tv-7",
-      code: "S-02",
-      name: "Merusak atau mencoret-coret fasilitas inventaris sekolah",
-      categoryName: "Sedang",
-      pointsPerIncident: 25,
-      count: 8,
-      totalPoints: 200,
-      percentage: 5.4,
-    },
-    {
-      id: "tv-8",
-      code: "B-02",
-      name: "Membawa atau merokok di lingkungan / sekitar sekolah",
-      categoryName: "Berat",
-      pointsPerIncident: 50,
-      count: 6,
-      totalPoints: 300,
-      percentage: 4.1,
-    },
-    {
-      id: "tv-9",
-      code: "B-01",
-      name: "Terlibat perkelahian / tawuran di dalam atau luar sekolah",
-      categoryName: "Berat",
-      pointsPerIncident: 75,
-      count: 5,
-      totalPoints: 375,
-      percentage: 3.4,
-    },
-    {
-      id: "tv-10",
-      code: "B-03",
-      name: "Perundungan (Bullying) fisik maupun verbal terhadap siswa",
-      categoryName: "Berat",
-      pointsPerIncident: 50,
-      count: 4,
-      totalPoints: 200,
-      percentage: 2.7,
-    },
-  ],
-  topStudents: [
-    {
-      id: "stu-top-1",
-      nis: "10297",
-      fullName: "Farhan Maulana",
-      className: "XII MIPA 4",
-      totalViolationPoints: 160,
-      totalMeritPoints: 0,
-      violationCount: 6,
-      status: "SP3 (Kepala Sekolah)",
-    },
-    {
-      id: "stu-top-2",
-      nis: "10301",
-      fullName: "Bagas Adi Saputra",
-      className: "XI IPS 2",
-      totalViolationPoints: 125,
-      totalMeritPoints: 5,
-      violationCount: 5,
-      status: "SP2",
-    },
-    {
-      id: "stu-top-3",
-      nis: "10295",
-      fullName: "Citra Dewi Lestari",
-      className: "XII IPS 3",
-      totalViolationPoints: 95,
-      totalMeritPoints: 0,
-      violationCount: 4,
-      status: "SP2",
-    },
-    {
-      id: "stu-top-4",
-      nis: "10312",
-      fullName: "Reza Pahlevi",
-      className: "XI MIPA 1",
-      totalViolationPoints: 80,
-      totalMeritPoints: 10,
-      violationCount: 4,
-      status: "SP2",
-    },
-    {
-      id: "stu-top-5",
-      nis: "10296",
-      fullName: "Dimas Anggara",
-      className: "XI MIPA 1",
-      totalViolationPoints: 65,
-      totalMeritPoints: 5,
-      violationCount: 3,
-      status: "SP1",
-    },
-    {
-      id: "stu-top-6",
-      nis: "10318",
-      fullName: "Hendra Wijaya",
-      className: "X IPS 1",
-      totalViolationPoints: 55,
-      totalMeritPoints: 0,
-      violationCount: 3,
-      status: "SP1",
-    },
-    {
-      id: "stu-top-7",
-      nis: "10324",
-      fullName: "Kevin Sanjaya Putra",
-      className: "XII MIPA 2",
-      totalViolationPoints: 45,
-      totalMeritPoints: 15,
-      violationCount: 3,
-      status: "SP1",
-    },
-    {
-      id: "stu-top-8",
-      nis: "10293",
-      fullName: "Aditya Pratama",
-      className: "XI MIPA 2",
-      totalViolationPoints: 40,
-      totalMeritPoints: 10,
-      violationCount: 3,
-      status: "SP1",
-    },
-    {
-      id: "stu-top-9",
-      nis: "10330",
-      fullName: "Gilang Ramadhan",
-      className: "X MIPA 3",
-      totalViolationPoints: 30,
-      totalMeritPoints: 5,
-      violationCount: 2,
-      status: "Aman",
-    },
-    {
-      id: "stu-top-10",
-      nis: "10294",
-      fullName: "Budi Santoso",
-      className: "X MIPA 2",
-      totalViolationPoints: 25,
-      totalMeritPoints: 10,
-      violationCount: 2,
-      status: "Aman",
-    },
-  ],
-  recentActivities: [
-    {
-      id: "act-101",
-      incidentDate: "Hari ini, 08:45 WITA",
-      studentNis: "10293",
-      studentName: "Aditya Pratama",
-      className: "XI MIPA 2",
-      ruleCode: "K-01",
-      violationName: "Terlambat hadir di sekolah lebih dari 10 menit",
-      categoryName: "Ringan",
-      points: 5,
-      reportedByTeacher: "Drs. Joko Susilo (Piket)",
-      status: "confirmed",
-    },
-    {
-      id: "act-102",
-      incidentDate: "Hari ini, 07:20 WITA",
-      studentNis: "10294",
-      studentName: "Budi Santoso",
-      className: "X MIPA 2",
-      ruleCode: "K-02",
-      violationName: "Atribut seragam sekolah tidak lengkap (Dasi/Sabuk)",
-      categoryName: "Ringan",
-      points: 5,
-      reportedByTeacher: "Siti Rahmawati, S.Pd (BK)",
-      status: "confirmed",
-    },
-    {
-      id: "act-103",
-      incidentDate: "Kemarin, 13:15 WITA",
-      studentNis: "10295",
-      studentName: "Citra Dewi Lestari",
-      className: "XII IPS 3",
-      ruleCode: "S-01",
-      violationName: "Meninggalkan kelas pada jam pelajaran tanpa izin",
-      categoryName: "Sedang",
-      points: 15,
-      reportedByTeacher: "Ahmad Fauzi, S.Pd",
-      status: "appealed",
-    },
-    {
-      id: "act-104",
-      incidentDate: "30 Okt, 10:10 WITA",
-      studentNis: "10296",
-      studentName: "Dimas Anggara",
-      className: "XI MIPA 1",
-      ruleCode: "S-02",
-      violationName: "Mencoret-coret meja inventaris sekolah",
-      categoryName: "Sedang",
-      points: 25,
-      reportedByTeacher: "Drs. Joko Susilo (Piket)",
-      status: "confirmed",
-    },
-    {
-      id: "act-105",
-      incidentDate: "28 Okt, 14:00 WITA",
-      studentNis: "10297",
-      studentName: "Farhan Maulana",
-      className: "XII MIPA 4",
-      ruleCode: "B-01",
-      violationName: "Terlibat perkelahian / tawuran di luar lingkungan sekolah",
-      categoryName: "Berat",
-      points: 75,
-      reportedByTeacher: "Drs. H. Bambang Prakoso (Tatib)",
-      status: "confirmed",
-    },
-  ],
-  academicPeriod: {
-    year: "2026/2027",
-    semester: "Semester Ganjil",
-  },
-  dataSource: "demo_fallback",
-  lastUpdated: new Date().toISOString(),
-};
 
 const MONTH_TEMPLATE_GANJIL = [
   { monthIndex: 6, month: "Jul", fullMonthName: "Juli" },
@@ -362,32 +32,64 @@ const MONTH_TEMPLATE_GENAP = [
   { monthIndex: 5, month: "Jun", fullMonthName: "Juni" },
 ];
 
+function createEmptyOverviewData(
+  year: string,
+  semester: string
+): AdminOverviewData {
+  return {
+    metrics: {
+      totalStudents: 0,
+      totalTeachers: 0,
+      totalViolations: 0,
+      totalViolationPoints: 0,
+      studentsWithViolations: 0,
+      monthlyViolations: 0,
+      previousMonthViolations: 0,
+      monthlyChangePercentage: 0,
+      studentTrend: "0 siswa terdaftar aktif",
+      monthlyViolationTrend: {
+        value: 0,
+        isPositive: true,
+        label: "Belum ada statistik tersedia",
+      },
+    },
+    monthlyStats: [],
+    categoryStats: [],
+    topViolations: [],
+    topStudents: [],
+    recentActivities: [],
+    academicPeriod: {
+      year,
+      semester: semester.startsWith("Semester") ? semester : `Semester ${semester}`,
+    },
+    dataSource: "supabase_live",
+    lastUpdated: new Date().toISOString(),
+  };
+}
+
 /**
- * Server Action: Fetches real-time discipline analytics from Supabase PostgreSQL.
- * Uses Admin Service Role client when available to bypass anonymous RLS bottlenecks.
+ * Server Action: Fetches real-time discipline analytics exclusively from Supabase PostgreSQL.
+ * Zero fallback datasets, zero mock arrays, zero demo statistics.
  */
 export async function getAdminOverviewData(options?: {
   semester?: "ganjil" | "genap";
 }): Promise<AdminOverviewData> {
+  // Enforce strict Administrator authorization
+  const session = await requireRole(["admin"], "/admin");
+  assertRole(session, ["admin"], "mengakses ringkasan analitik administrator");
+
   const systemSettings = await getSystemSettingsAction();
   const configuredYear = systemSettings.activeSetting.academicYear;
   const configuredSemester = systemSettings.activeSetting.semester;
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const isSupabaseLive =
-    supabaseUrl &&
+    Boolean(supabaseUrl) &&
     supabaseUrl !== "https://placeholder-project.supabase.co" &&
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 
   if (!isSupabaseLive) {
-    return {
-      ...FALLBACK_OVERVIEW_DATA,
-      academicPeriod: {
-        year: configuredYear,
-        semester: `Semester ${configuredSemester}`,
-      },
-      lastUpdated: new Date().toISOString(),
-    };
+    return createEmptyOverviewData(configuredYear, configuredSemester);
   }
 
   try {
@@ -395,7 +97,7 @@ export async function getAdminOverviewData(options?: {
       ? createAdminClient()
       : await createClient();
 
-    // 1. Fetch Students, Teachers count, and all Violations in parallel
+    // 1. Fetch Students, Teachers count, and all Violations exclusively from Supabase
     const [studentsRes, teachersCountRes, violationsRes] = await Promise.all([
       supabase
         .from("students")
@@ -435,46 +137,21 @@ export async function getAdminOverviewData(options?: {
     const liveStudents = studentsRes.data || [];
     const liveViolations = violationsRes.data || [];
 
-    // If database tables are completely empty (unseeded), return structured fallback with live indicator
-    if (liveStudents.length === 0 && liveViolations.length === 0) {
-      return {
-        ...FALLBACK_OVERVIEW_DATA,
-        academicPeriod: {
-          year: configuredYear,
-          semester: `Semester ${configuredSemester}`,
-        },
-        dataSource: "supabase_live",
-        lastUpdated: new Date().toISOString(),
-      };
-    }
-
     const totalStudents = liveStudents.length;
     const totalTeachers = teachersCountRes.count ?? 0;
 
-    // Violation Counts & Points
+    // Violation Counts & Points (calculated strictly from authentic database records)
     const totalViolations = liveViolations.length;
-    const violationPointsFromLogs = liveViolations.reduce(
+    const totalViolationPoints = liveViolations.reduce(
       (sum: number, v: any) => sum + (Number(v.points) || 0),
       0
     );
-    const violationPointsFromStudents = liveStudents.reduce(
-      (sum: number, s: any) => sum + (Number(s.total_violation_points) || 0),
-      0
-    );
-    const totalViolationPoints =
-      violationPointsFromLogs > 0 ? violationPointsFromLogs : violationPointsFromStudents;
 
     // Students With Violations
     const uniqueViolatingStudentIds = new Set(
       liveViolations.map((v: any) => v.student_id).filter(Boolean)
     );
-    const studentsWithPointsCount = liveStudents.filter(
-      (s: any) => (Number(s.total_violation_points) || 0) > 0
-    ).length;
-    const studentsWithViolations = Math.max(
-      uniqueViolatingStudentIds.size,
-      studentsWithPointsCount
-    );
+    const studentsWithViolations = uniqueViolatingStudentIds.size;
 
     // Monthly Change % Calculation
     const now = new Date();
@@ -500,7 +177,11 @@ export async function getAdminOverviewData(options?: {
     let monthlyChangePercentage = 0;
     if (previousMonthViolations > 0) {
       monthlyChangePercentage = Number(
-        (((monthlyViolations - previousMonthViolations) / previousMonthViolations) * 100).toFixed(1)
+        (
+          ((monthlyViolations - previousMonthViolations) /
+            previousMonthViolations) *
+          100
+        ).toFixed(1)
       );
     } else if (monthlyViolations > 0) {
       monthlyChangePercentage = 100;
@@ -514,7 +195,9 @@ export async function getAdminOverviewData(options?: {
       activeSemester === "genap" ? MONTH_TEMPLATE_GENAP : MONTH_TEMPLATE_GANJIL;
 
     const monthlyMap = new Map<number, { count: number; points: number }>();
-    monthTemplate.forEach((m) => monthlyMap.set(m.monthIndex, { count: 0, points: 0 }));
+    monthTemplate.forEach((m) =>
+      monthlyMap.set(m.monthIndex, { count: 0, points: 0 })
+    );
 
     liveViolations.forEach((v: any) => {
       if (!v.incident_date) return;
@@ -527,25 +210,24 @@ export async function getAdminOverviewData(options?: {
       }
     });
 
-    const monthlyStats: MonthlyViolationStat[] = monthTemplate.map((m) => {
-      const stat = monthlyMap.get(m.monthIndex) || { count: 0, points: 0 };
-      return {
-        month: m.month,
-        fullMonthName: m.fullMonthName,
-        count: stat.count,
-        points: stat.points,
-      };
-    });
+    const monthlyStats: MonthlyViolationStat[] =
+      totalViolations > 0
+        ? monthTemplate.map((m) => {
+            const stat = monthlyMap.get(m.monthIndex) || { count: 0, points: 0 };
+            return {
+              month: m.month,
+              fullMonthName: m.fullMonthName,
+              count: stat.count,
+              points: stat.points,
+            };
+          })
+        : [];
 
-    // 3. Build Category Breakdown Stats
+    // 3. Build Category Breakdown Stats (strictly from live violations)
     const categoryMap = new Map<
       string,
       { count: number; points: number; colorCode: string }
-    >([
-      ["Ringan", { count: 0, points: 0, colorCode: "#3b82f6" }],
-      ["Sedang", { count: 0, points: 0, colorCode: "#f59e0b" }],
-      ["Berat", { count: 0, points: 0, colorCode: "#ef4444" }],
-    ]);
+    >();
 
     liveViolations.forEach((v: any) => {
       const vType = Array.isArray(v.violation_types)
@@ -555,15 +237,10 @@ export async function getAdminOverviewData(options?: {
         ? vType?.violation_categories[0]
         : vType?.violation_categories;
 
-      const rawName = cat?.name || "Ringan";
-      const normalizedName = rawName.replace(/^Pelanggaran\s+/i, "").trim() || "Ringan";
-      const colorCode =
-        cat?.color_code ||
-        (normalizedName === "Berat"
-          ? "#ef4444"
-          : normalizedName === "Sedang"
-          ? "#f59e0b"
-          : "#3b82f6");
+      const rawName = cat?.name || "Pelanggaran Umum";
+      const normalizedName =
+        rawName.replace(/^Pelanggaran\s+/i, "").trim() || "Pelanggaran Umum";
+      const colorCode = cat?.color_code || "#3b82f6";
 
       const current = categoryMap.get(normalizedName) || {
         count: 0,
@@ -614,8 +291,8 @@ export async function getAdminOverviewData(options?: {
       const code = vType?.code || "K-00";
       const name = vType?.name || "Pelanggaran Tata Tertib";
       const categoryName =
-        (cat?.name || "Ringan").replace(/^Pelanggaran\s+/i, "").trim() || "Ringan";
-      const pts = Number(v.points) || Number(vType?.points) || 5;
+        (cat?.name || "Umum").replace(/^Pelanggaran\s+/i, "").trim() || "Umum";
+      const pts = Number(v.points) || Number(vType?.points) || 0;
 
       const existing = ruleAggregation.get(ruleKey) || {
         id: String(ruleKey),
@@ -631,7 +308,9 @@ export async function getAdminOverviewData(options?: {
       ruleAggregation.set(ruleKey, existing);
     });
 
-    const topViolations: TopViolationStat[] = Array.from(ruleAggregation.values())
+    const topViolations: TopViolationStat[] = Array.from(
+      ruleAggregation.values()
+    )
       .sort((a, b) => b.count - a.count || b.totalPoints - a.totalPoints)
       .slice(0, 10)
       .map((item) => ({
@@ -642,7 +321,7 @@ export async function getAdminOverviewData(options?: {
             : 0,
       }));
 
-    // 5. Build Top 10 Students by Points
+    // 5. Build Top 10 Students by Points (strictly from real records)
     const studentIncidentCounts = new Map<string, number>();
     const studentPointsFromViolations = new Map<string, number>();
     liveViolations.forEach((v: any) => {
@@ -653,16 +332,18 @@ export async function getAdminOverviewData(options?: {
       );
       studentPointsFromViolations.set(
         v.student_id,
-        (studentPointsFromViolations.get(v.student_id) || 0) + (Number(v.points) || 0)
+        (studentPointsFromViolations.get(v.student_id) || 0) +
+          (Number(v.points) || 0)
       );
     });
 
     const topStudents: TopStudentStat[] = liveStudents
       .map((s: any) => {
         const profile = Array.isArray(s.profiles) ? s.profiles[0] : s.profiles;
+        const calcPoints = studentPointsFromViolations.get(s.id) ?? 0;
         const dbPoints = Number(s.total_violation_points) || 0;
-        const calcPoints = studentPointsFromViolations.get(s.id) || 0;
-        const effectivePoints = Math.max(dbPoints, calcPoints);
+        const effectivePoints =
+          liveViolations.length > 0 ? calcPoints : dbPoints;
         const levelInfo = getDisciplinaryLevel(effectivePoints);
 
         return {
@@ -672,8 +353,7 @@ export async function getAdminOverviewData(options?: {
           className: s.class_name || "-",
           totalViolationPoints: effectivePoints,
           totalMeritPoints: Number(s.total_merit_points) || 0,
-          violationCount:
-            studentIncidentCounts.get(s.id) || (effectivePoints > 0 ? 1 : 0),
+          violationCount: studentIncidentCounts.get(s.id) || 0,
           status: levelInfo.level,
         };
       })
@@ -688,7 +368,9 @@ export async function getAdminOverviewData(options?: {
     const recentActivities: RecentViolationActivity[] = liveViolations
       .slice(0, 10)
       .map((r: any) => {
-        const student = Array.isArray(r.students) ? r.students[0] : r.students || {};
+        const student = Array.isArray(r.students)
+          ? r.students[0]
+          : r.students || {};
         const profile = Array.isArray(student.profiles)
           ? student.profiles[0]
           : student.profiles || {};
@@ -698,7 +380,9 @@ export async function getAdminOverviewData(options?: {
         const category = Array.isArray(vType.violation_categories)
           ? vType.violation_categories[0]
           : vType.violation_categories || {};
-        const teacherObj = Array.isArray(r.teachers) ? r.teachers[0] : r.teachers;
+        const teacherObj = Array.isArray(r.teachers)
+          ? r.teachers[0]
+          : r.teachers;
         const teacherProfile = Array.isArray(teacherObj?.profiles)
           ? teacherObj?.profiles[0]
           : teacherObj?.profiles || {};
@@ -721,8 +405,8 @@ export async function getAdminOverviewData(options?: {
           ruleCode: vType.code || "K-00",
           violationName: vType.name || "Pelanggaran Tata Tertib",
           categoryName:
-            (category.name || "Ringan").replace(/^Pelanggaran\s+/i, "").trim() ||
-            "Ringan",
+            (category.name || "Umum").replace(/^Pelanggaran\s+/i, "").trim() ||
+            "Umum",
           points: Number(r.points) || 0,
           reportedByTeacher: teacherProfile.full_name || "Guru Piket / Tatib",
           status: r.status || "confirmed",
@@ -732,7 +416,9 @@ export async function getAdminOverviewData(options?: {
 
     const isPositiveChange = monthlyChangePercentage <= 0;
     const changeLabel =
-      monthlyChangePercentage === 0
+      totalViolations === 0
+        ? "Belum ada statistik tersedia"
+        : monthlyChangePercentage === 0
         ? "Stabil dibanding bulan lalu"
         : monthlyChangePercentage < 0
         ? `Turun ${Math.abs(monthlyChangePercentage)}% dari bulan lalu`
@@ -762,20 +448,14 @@ export async function getAdminOverviewData(options?: {
       recentActivities,
       academicPeriod: {
         year: configuredYear,
-        semester: activeSemester === "genap" ? "Semester Genap" : "Semester Ganjil",
+        semester:
+          activeSemester === "genap" ? "Semester Genap" : "Semester Ganjil",
       },
       dataSource: "supabase_live",
       lastUpdated: new Date().toISOString(),
     };
   } catch (err) {
-    console.error("Supabase overview fetch error, falling back to seed data:", err);
-    return {
-      ...FALLBACK_OVERVIEW_DATA,
-      academicPeriod: {
-        year: configuredYear,
-        semester: `Semester ${configuredSemester}`,
-      },
-      lastUpdated: new Date().toISOString(),
-    };
+    console.error("Supabase overview fetch error:", err);
+    return createEmptyOverviewData(configuredYear, configuredSemester);
   }
 }

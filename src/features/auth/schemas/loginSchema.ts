@@ -10,6 +10,7 @@ export const loginSchema = z.object({
     .min(4, "Password minimal 4 karakter")
     .max(64, "Password maksimal 64 karakter"),
   role: z.enum(["admin", "guru", "siswa"]),
+  rememberMe: z.boolean().default(false).optional(),
 });
 
 export type LoginFormData = z.infer<typeof loginSchema>;

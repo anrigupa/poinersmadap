@@ -47,12 +47,14 @@ export interface AuthSession {
   user: UserProfile;
   token: string;
   expiresAt: number;
+  rememberMe?: boolean;
 }
 
 export interface SignInInput {
   identifier: string; // Email, NIP, or NIS
   password?: string;
   role?: UserRole;
+  rememberMe?: boolean;
 }
 
 export interface AuthActionResult {

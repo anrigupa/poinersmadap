@@ -17,12 +17,18 @@ import {
   Headset,
   Flame,
   TrendingUp,
+  Loader2,
+  Inbox,
 } from "lucide-react";
 import {
-  MOCK_STUDENTS,
-  RULES_DATA,
-  StudentRecord,
-} from "@/data/mockRules";
+  searchStudentPublicAction,
+  PublicStudentSearchResult,
+} from "@/features/students/actions";
+import {
+  getCategoriesAction,
+  getViolationsAction,
+} from "@/features/rules/actions";
+import { ViolationCategory, ViolationItem } from "@/features/rules/types";
 import { PublicCounselorContact } from "@/features/teachers/types";
 import { getCounselorTeachersAction } from "@/features/teachers/actions";
 import { TopViolationItem } from "@/features/violations/types";
@@ -49,12 +55,21 @@ function getInitials(name: string): string {
 }
 
 export default function QuickModals({ activeModal, onClose }: ModalProps) {
-  const [searchQuery, setSearchQuery] = useState("10293");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchedStudent, setSearchedStudent] = useState<PublicStudentSearchResult | null>(null);
+  const [isSearchingStudent, setIsSearchingStudent] = useState<boolean>(false);
+  const [hasSearched, setHasSearched] = useState<boolean>(false);
+
   const [selectedCategory, setSelectedCategory] = useState<string>("Semua");
+  const [catalogCategories, setCatalogCategories] = useState<ViolationCategory[]>([]);
+  const [catalogRules, setCatalogRules] = useState<ViolationItem[]>([]);
+  const [isLoadingRules, setIsLoadingRules] = useState<boolean>(false);
+
   const [bkTeachers, setBkTeachers] = useState<PublicCounselorContact[]>([]);
   const [isLoadingBk, setIsLoadingBk] = useState<boolean>(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  // Fetch Counselor teachers on modal open
   useEffect(() => {
     if (activeModal !== "lapor-bk") return;
     let isMounted = true;
@@ -68,6 +83,35 @@ export default function QuickModals({ activeModal, onClose }: ModalProps) {
       .finally(() => {
         if (isMounted) {
           setIsLoadingBk(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeModal]);
+
+  // Fetch real violation rules & categories on Buku Saku modal open
+  useEffect(() => {
+    if (activeModal !== "buku-saku") return;
+    let isMounted = true;
+    setIsLoadingRules(true);
+
+    Promise.all([
+      getCategoriesAction(),
+      getViolationsAction({ pageSize: 150, sortBy: "code", sortOrder: "asc" }),
+    ])
+      .then(([cats, violationsRes]) => {
+        if (!isMounted) return;
+        setCatalogCategories(cats);
+        setCatalogRules(violationsRes.items);
+      })
+      .catch((err) => {
+        console.warn("Gagal memuat aturan tata tertib:", err);
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLoadingRules(false);
         }
       });
 
@@ -130,16 +174,31 @@ export default function QuickModals({ activeModal, onClose }: ModalProps) {
     }
   };
 
-  const foundStudent: StudentRecord | undefined = MOCK_STUDENTS.find(
-    (s) =>
-      s.nis.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.nama.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const handleSearchStudent = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const clean = searchQuery.trim();
+    if (!clean) return;
+
+    setIsSearchingStudent(true);
+    setHasSearched(true);
+    try {
+      const result = await searchStudentPublicAction(clean);
+      setSearchedStudent(result);
+    } catch (err) {
+      console.warn("Pencarian siswa gagal:", err);
+      setSearchedStudent(null);
+    } finally {
+      setIsSearchingStudent(false);
+    }
+  };
 
   const filteredRules =
     selectedCategory === "Semua"
-      ? RULES_DATA
-      : RULES_DATA.filter((r) => r.kategori === selectedCategory);
+      ? catalogRules
+      : catalogRules.filter(
+          (r) =>
+            r.categoryName?.toLowerCase() === selectedCategory.toLowerCase()
+        );
 
   return (
     <AnimatePresence>
@@ -177,107 +236,125 @@ export default function QuickModals({ activeModal, onClose }: ModalProps) {
                   <div>
                     <h3 className="text-xl font-bold text-slate-900">Cek Poin Kedisiplinan Siswa</h3>
                     <p className="text-xs text-slate-500">
-                      Masukkan NIS atau Nama Siswa (Contoh: 10293, 10294, atau 10295)
+                      Pencarian data resmi siswa SMAN 2 Pangkep berdasarkan NIS, NISN, atau Nama
                     </p>
                   </div>
                 </div>
 
-                <div className="mt-4 flex gap-2">
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Ketik NIS (misal: 10293) atau nama siswa..."
-                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  />
-                </div>
+                <form onSubmit={handleSearchStudent} className="mt-4 flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Ketik NIS, NISN, atau Nama Siswa..."
+                      className="w-full pl-10 pr-4 py-3 rounded-2xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={isSearchingStudent || !searchQuery.trim()}
+                    className="px-5 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-xs transition disabled:opacity-50 cursor-pointer flex items-center gap-1.5 shrink-0"
+                  >
+                    {isSearchingStudent ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <span>Cari</span>
+                    )}
+                  </button>
+                </form>
 
-                <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                  <span className="text-slate-400 py-1">Coba cepat:</span>
-                  {MOCK_STUDENTS.map((s) => (
-                    <button
-                      key={s.nis}
-                      onClick={() => setSearchQuery(s.nis)}
-                      className="px-3 py-1 rounded-full bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium transition"
-                    >
-                      {s.nis} - {s.nama}
-                    </button>
-                  ))}
-                </div>
-
-                {foundStudent ? (
+                {isSearchingStudent ? (
+                  <div className="mt-6 p-6 rounded-2xl bg-slate-50 border border-slate-200/80 animate-pulse space-y-4">
+                    <div className="h-16 bg-slate-200 rounded-xl" />
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="h-14 bg-slate-200 rounded-xl" />
+                      <div className="h-14 bg-slate-200 rounded-xl" />
+                    </div>
+                  </div>
+                ) : searchedStudent ? (
                   <div className="mt-6 space-y-4">
                     <div className="p-5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div>
                         <span className="text-xs uppercase tracking-wider bg-white/20 px-2.5 py-1 rounded-full">
-                          NIS: {foundStudent.nis} • {foundStudent.kelas}
+                          NIS: {searchedStudent.nis} • {searchedStudent.className}
                         </span>
-                        <h4 className="text-2xl font-bold mt-2">{foundStudent.nama}</h4>
-                        <p className="text-xs text-blue-100 mt-0.5">Status: {foundStudent.status}</p>
+                        <h4 className="text-2xl font-bold mt-2">{searchedStudent.fullName}</h4>
+                        <p className="text-xs text-blue-100 mt-0.5">
+                          Status Disiplin: <span className="font-semibold">{searchedStudent.status}</span>
+                        </p>
                       </div>
                       <div className="text-left sm:text-right bg-white/15 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/20">
-                        <span className="text-xs text-blue-100 block">Skor Akhir Kedisiplinan</span>
+                        <span className="text-xs text-blue-100 block">Total Poin Pelanggaran</span>
                         <span className="text-4xl font-extrabold">
-                          {foundStudent.poinAwal + foundStudent.totalPelanggaran + foundStudent.poinPenghargaan}
+                          {searchedStudent.totalViolationPoints}
                         </span>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-3 text-center">
-                      <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
-                        <span className="text-xs text-slate-500 block">Poin Awal</span>
-                        <span className="text-lg font-bold text-slate-800">{foundStudent.poinAwal}</span>
+                    <div className="grid grid-cols-2 gap-3 text-center">
+                      <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-100">
+                        <span className="text-xs text-rose-600 block">Akumulasi Poin Pelanggaran</span>
+                        <span className="text-xl font-bold text-rose-700">
+                          {searchedStudent.totalViolationPoints} Poin
+                        </span>
                       </div>
-                      <div className="p-3 rounded-2xl bg-rose-50 border border-rose-100">
-                        <span className="text-xs text-rose-600 block">Pelanggaran</span>
-                        <span className="text-lg font-bold text-rose-700">{foundStudent.totalPelanggaran}</span>
-                      </div>
-                      <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-100">
-                        <span className="text-xs text-emerald-600 block">Penghargaan</span>
-                        <span className="text-lg font-bold text-emerald-700">+{foundStudent.poinPenghargaan}</span>
+                      <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-100">
+                        <span className="text-xs text-emerald-600 block">Poin Apresiasi Prestasi</span>
+                        <span className="text-xl font-bold text-emerald-700">
+                          +{searchedStudent.totalMeritPoints} Poin
+                        </span>
                       </div>
                     </div>
 
                     <div>
                       <h5 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
-                        Riwayat Catatan Terbaru
+                        Riwayat Catatan Pelanggaran
                       </h5>
-                      <div className="space-y-2">
-                        {foundStudent.riwayat.map((item, idx) => (
-                          <div
-                            key={idx}
-                            className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200/70 text-sm"
-                          >
-                            <div className="flex items-center gap-3">
-                              {item.poin > 0 ? (
-                                <Award className="w-5 h-5 text-emerald-500 flex-shrink-0" />
-                              ) : (
-                                <AlertTriangle className="w-5 h-5 text-rose-500 flex-shrink-0" />
-                              )}
-                              <div>
-                                <p className="font-medium text-slate-800">{item.kejadian}</p>
-                                <p className="text-xs text-slate-400">
-                                  {item.tanggal} • Dicatat oleh {item.pencatat}
-                                </p>
-                              </div>
-                            </div>
-                            <span
-                              className={`font-bold px-2.5 py-1 rounded-full text-xs ${
-                                item.poin > 0
-                                  ? "bg-emerald-100 text-emerald-700"
-                                  : "bg-rose-100 text-rose-700"
-                              }`}
+                      {searchedStudent.recentViolations.length === 0 ? (
+                        <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/70 text-center text-xs text-slate-500">
+                          Tidak ada catatan pelanggaran aktif. Siswa berstatus tertib dan patuh.
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {searchedStudent.recentViolations.map((item) => (
+                            <div
+                              key={item.id}
+                              className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200/70 text-sm"
                             >
-                              {item.poin > 0 ? `+${item.poin}` : item.poin} Poin
-                            </span>
-                          </div>
-                        ))}
-                      </div>
+                              <div className="flex items-center gap-3">
+                                <AlertTriangle className="w-5 h-5 text-rose-500 flex-shrink-0" />
+                                <div>
+                                  <p className="font-medium text-slate-800">{item.violationName}</p>
+                                  <p className="text-xs text-slate-400">
+                                    {item.incidentDate} • Dicatat oleh {item.reportedBy}
+                                  </p>
+                                </div>
+                              </div>
+                              <span className="font-bold px-2.5 py-1 rounded-full text-xs bg-rose-100 text-rose-700">
+                                +{item.points} Poin
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
+                ) : hasSearched ? (
+                  <div className="mt-6 p-8 text-center rounded-2xl bg-slate-50 border border-slate-200 text-slate-500 text-sm flex flex-col items-center justify-center gap-2">
+                    <div className="w-10 h-10 rounded-full bg-slate-200/80 flex items-center justify-center text-slate-400">
+                      <Search className="w-5 h-5" />
+                    </div>
+                    <p className="font-semibold text-slate-700">Data Siswa Tidak Ditemukan</p>
+                    <p className="text-xs text-slate-400 max-w-sm">
+                      Pastikan NIS, NISN, atau Nama Siswa yang Anda masukkan sudah terdaftar di pangkalan data SMAN 2 Pangkep.
+                    </p>
+                  </div>
                 ) : (
-                  <div className="mt-6 p-8 text-center rounded-2xl bg-slate-50 text-slate-500 text-sm">
-                    Data siswa tidak ditemukan. Coba ketik NIS <b>10293</b>.
+                  <div className="mt-6 p-8 text-center rounded-2xl bg-slate-50/80 border border-dashed border-slate-200 text-slate-400 text-xs flex flex-col items-center justify-center gap-2">
+                    <Search className="w-6 h-6 text-slate-300" />
+                    <p>Masukkan kata kunci pencarian di atas untuk memeriksa poin kedisiplinan siswa.</p>
                   </div>
                 )}
               </div>
@@ -293,19 +370,19 @@ export default function QuickModals({ activeModal, onClose }: ModalProps) {
                   <div>
                     <h3 className="text-xl font-bold text-slate-900">Buku Saku Digital Tata Tertib</h3>
                     <p className="text-xs text-slate-500">
-                      Daftar pedoman poin pelanggaran dan penghargaan prestasi siswa
+                      Pedoman klasifikasi aturan pelanggaran dan bobot poin resmi SMAN 2 Pangkep
                     </p>
                   </div>
                 </div>
 
                 <div className="flex flex-wrap gap-2 mb-4">
-                  {["Semua", "Ringan", "Sedang", "Berat", "Penghargaan"].map((kat) => (
+                  {["Semua", "Ringan", "Sedang", "Berat"].map((kat) => (
                     <button
                       key={kat}
                       onClick={() => setSelectedCategory(kat)}
-                      className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition ${
+                      className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${
                         selectedCategory === kat
-                          ? "bg-blue-600 text-white"
+                          ? "bg-blue-600 text-white shadow-xs"
                           : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                       }`}
                     >
@@ -314,37 +391,66 @@ export default function QuickModals({ activeModal, onClose }: ModalProps) {
                   ))}
                 </div>
 
-                <div className="space-y-2.5">
-                  {filteredRules.map((rule) => (
-                    <div
-                      key={rule.id}
-                      className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-200/70"
-                    >
-                      <div className="pr-3">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold px-2 py-0.5 rounded bg-slate-200 text-slate-700">
-                            {rule.kode}
-                          </span>
-                          <span className="text-xs font-medium text-slate-500">
-                            Kategori {rule.kategori}
+                {isLoadingRules && catalogRules.length === 0 ? (
+                  <div className="space-y-2.5">
+                    {[1, 2, 3, 4].map((n) => (
+                      <div
+                        key={n}
+                        className="p-4 rounded-2xl bg-slate-50 border border-slate-200/70 animate-pulse flex items-center justify-between"
+                      >
+                        <div className="space-y-2 flex-1 pr-4">
+                          <div className="h-4 w-48 bg-slate-200 rounded" />
+                          <div className="h-3 w-32 bg-slate-200 rounded" />
+                        </div>
+                        <div className="h-6 w-16 bg-slate-200 rounded-full" />
+                      </div>
+                    ))}
+                  </div>
+                ) : filteredRules.length === 0 ? (
+                  <div className="p-8 text-center rounded-2xl bg-slate-50 border border-slate-200 text-slate-500 text-xs flex flex-col items-center justify-center gap-2">
+                    <Inbox className="w-6 h-6 text-slate-400" />
+                    <p className="font-semibold text-slate-700">Belum Ada Aturan Dikonfigurasi</p>
+                    <p className="text-slate-400">
+                      Aturan tata tertib untuk kategori ini belum tersedia dalam pangkalan data.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5 max-h-[50vh] overflow-y-auto pr-1">
+                    {filteredRules.map((rule) => {
+                      const isBerat = rule.categoryName === "Berat";
+                      const isSedang = rule.categoryName === "Sedang";
+                      return (
+                        <div
+                          key={rule.id}
+                          className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-200/70 hover:bg-white hover:border-blue-200 hover:shadow-xs transition"
+                        >
+                          <div className="pr-3">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-slate-200 text-slate-700">
+                                {rule.code}
+                              </span>
+                              <span className="text-xs font-medium text-slate-500">
+                                Kategori {rule.categoryName || "Umum"}
+                              </span>
+                            </div>
+                            <p className="text-sm font-medium text-slate-800 mt-1">{rule.name}</p>
+                          </div>
+                          <span
+                            className={`text-xs font-bold px-3 py-1.5 rounded-full flex-shrink-0 ${
+                              isBerat
+                                ? "bg-rose-100 text-rose-800"
+                                : isSedang
+                                ? "bg-amber-100 text-amber-800"
+                                : "bg-blue-100 text-blue-800"
+                            }`}
+                          >
+                            +{rule.points} Poin
                           </span>
                         </div>
-                        <p className="text-sm font-medium text-slate-800 mt-1">{rule.deskripsi}</p>
-                      </div>
-                      <span
-                        className={`text-xs font-bold px-3 py-1.5 rounded-full flex-shrink-0 ${
-                          rule.poin > 0
-                            ? "bg-emerald-100 text-emerald-700"
-                            : rule.poin <= -50
-                            ? "bg-rose-200 text-rose-800"
-                            : "bg-amber-100 text-amber-800"
-                        }`}
-                      >
-                        {rule.poin > 0 ? `+${rule.poin}` : rule.poin} Poin
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
 

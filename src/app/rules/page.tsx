@@ -1,8 +1,10 @@
 import Link from "next/link";
-import { ArrowLeft, BookOpen } from "lucide-react";
-import { RULES_DATA } from "@/data/mockRules";
+import { ArrowLeft, BookOpen, Inbox } from "lucide-react";
+import { getCategoriesAction, getViolationsAction } from "@/features/rules/actions";
 import { getCurrentSession } from "@/features/auth/actions/authActions";
 import DashboardShell from "@/components/layout/DashboardShell";
+
+export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "Buku Saku Tata Tertib - SMADAP POINER",
@@ -10,7 +12,14 @@ export const metadata = {
 };
 
 export default async function RulesPage() {
-  const session = await getCurrentSession();
+  const [session, categories, violationsRes] = await Promise.all([
+    getCurrentSession(),
+    getCategoriesAction(),
+    getViolationsAction({ pageSize: 200, sortBy: "code", sortOrder: "asc" }),
+  ]);
+
+  const rules = violationsRes.items;
+  const hasRules = rules.length > 0;
 
   const rulesCatalog = (
     <div className="space-y-6">
@@ -23,50 +32,78 @@ export default async function RulesPage() {
           Katalog Aturan & Bobot Poin Pelanggaran
         </h1>
         <p className="text-xs sm:text-sm text-blue-100 mt-2 max-w-2xl leading-relaxed">
-          Pedoman kedisiplinan siswa SMAN 2 PANGKEP tahun ajaran aktif. Pelanggaran diklasifikasikan ke dalam kategori Ringan, Sedang, dan Berat.
+          Pedoman kedisiplinan siswa SMAN 2 PANGKEP tahun ajaran aktif. Pelanggaran diklasifikasikan ke dalam kategori resmi.
         </p>
       </div>
 
-      <div className="space-y-4">
-        {(["Ringan", "Sedang", "Berat"] as const).map((kategori) => {
-          const rules = RULES_DATA.filter((r) => r.kategori === kategori);
-          const badgeColor =
-            kategori === "Ringan"
-              ? "bg-amber-100 text-amber-800 border-amber-200"
-              : kategori === "Sedang"
-              ? "bg-orange-100 text-orange-800 border-orange-200"
-              : "bg-rose-100 text-rose-800 border-rose-200";
+      {!hasRules ? (
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-12 text-center flex flex-col items-center justify-center gap-2">
+          <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mb-1">
+            <Inbox className="w-6 h-6" />
+          </div>
+          <h3 className="text-base font-bold text-slate-800">Belum Ada Aturan Dikonfigurasi</h3>
+          <p className="text-xs text-slate-500 max-w-md">
+            Pedoman tata tertib dan bobot poin pelanggaran belum ditambahkan oleh administrator sekolah.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {categories.map((category) => {
+            const categoryRules = rules.filter(
+              (r) =>
+                r.categoryId === category.id ||
+                r.categoryName?.toLowerCase() === category.name.toLowerCase()
+            );
 
-          return (
-            <div key={kategori} className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-              <div className="px-6 py-4 bg-slate-50/70 border-b border-slate-100 flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${badgeColor}`}>
-                    Kategori {kategori}
-                  </span>
-                  <span className="text-xs text-slate-500 font-medium">({rules.length} Aturan)</span>
+            if (categoryRules.length === 0) return null;
+
+            const isBerat = category.name.toLowerCase().includes("berat");
+            const isSedang = category.name.toLowerCase().includes("sedang");
+            const badgeColor = isBerat
+              ? "bg-rose-100 text-rose-800 border-rose-200"
+              : isSedang
+              ? "bg-amber-100 text-amber-800 border-amber-200"
+              : "bg-blue-100 text-blue-800 border-blue-200";
+
+            return (
+              <div
+                key={category.id}
+                className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden"
+              >
+                <div className="px-6 py-4 bg-slate-50/70 border-b border-slate-100 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${badgeColor}`}>
+                      Kategori {category.name}
+                    </span>
+                    <span className="text-xs text-slate-500 font-medium">
+                      ({categoryRules.length} Aturan)
+                    </span>
+                  </div>
+                </div>
+
+                <div className="divide-y divide-slate-100">
+                  {categoryRules.map((rule) => (
+                    <div
+                      key={rule.id}
+                      className="p-4 sm:px-6 flex items-center justify-between gap-4 hover:bg-slate-50/50 transition"
+                    >
+                      <div className="space-y-1">
+                        <div className="text-xs font-bold text-slate-900">{rule.name}</div>
+                        <div className="text-[11px] font-mono text-slate-400">Kode: {rule.code}</div>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <span className="inline-block px-3 py-1 rounded-xl text-xs font-bold bg-slate-100 text-slate-800 border border-slate-200">
+                          {rule.points} Poin
+                        </span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-
-              <div className="divide-y divide-slate-100">
-                {rules.map((rule) => (
-                  <div key={rule.id} className="p-4 sm:px-6 flex items-center justify-between gap-4 hover:bg-slate-50/50 transition">
-                    <div className="space-y-1">
-                      <div className="text-xs font-bold text-slate-900">{rule.deskripsi}</div>
-                      <div className="text-[11px] text-slate-400">Kode: {rule.kode}</div>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <span className="inline-block px-3 py-1 rounded-xl text-xs font-bold bg-slate-100 text-slate-800 border border-slate-200">
-                        {Math.abs(rule.poin)} Poin
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentSession } from "@/features/auth/actions/authActions";
-import { AuthSession, UserRole, UserProfile, normalizeRole } from "@/types/auth";
-import { ROLE_REDIRECT_MAP, getRoleRedirectPath } from "@/lib/constants/auth";
+import { AuthSession, UserRole, normalizeRole } from "@/types/auth";
+import { getRoleRedirectPath } from "@/lib/constants/auth";
 
 export class SecurityError extends Error {
   statusCode: number;
@@ -34,12 +34,22 @@ export async function requireRole(
   currentPath?: string
 ): Promise<AuthSession> {
   const session = await requireAuth(currentPath);
-  const userRole = normalizeRole(session.user.role);
+  const rawRole = String(session.user.role || "").toLowerCase().trim();
+  const userRole = normalizeRole(rawRole);
   const normalizedAllowed = allowedRoles.map((r) => normalizeRole(r));
 
-  if (!normalizedAllowed.includes(userRole)) {
-    // Redirect unauthorized user to their proper portal
-    const properTarget = getRoleRedirectPath(userRole);
+  const isStrictlyAdminOnly =
+    normalizedAllowed.length === 1 && normalizedAllowed[0] === "admin";
+
+  if (
+    !normalizedAllowed.includes(userRole) ||
+    (isStrictlyAdminOnly && (rawRole !== "admin" || userRole !== "admin"))
+  ) {
+    // Redirect unauthorized user to their proper portal (or /login if unrecognized)
+    const properTarget =
+      userRole === "guru" || userRole === "siswa"
+        ? getRoleRedirectPath(userRole)
+        : "/login";
     redirect(properTarget);
   }
 
@@ -70,10 +80,17 @@ export function assertRole(
   actionDescription = "tindakan ini"
 ): asserts session is AuthSession {
   assertAuthenticated(session);
-  const userRole = normalizeRole(session.user.role);
+  const rawRole = String(session.user.role || "").toLowerCase().trim();
+  const userRole = normalizeRole(rawRole);
   const normalizedAllowed = allowedRoles.map((r) => normalizeRole(r));
 
-  if (!normalizedAllowed.includes(userRole)) {
+  const isStrictlyAdminOnly =
+    normalizedAllowed.length === 1 && normalizedAllowed[0] === "admin";
+
+  if (
+    !normalizedAllowed.includes(userRole) ||
+    (isStrictlyAdminOnly && (rawRole !== "admin" || userRole !== "admin"))
+  ) {
     throw new SecurityError(
       `Akses dibatasi: Peran '${session.user.role}' tidak memiliki izin untuk ${actionDescription}.`,
       403
@@ -134,12 +151,13 @@ export function assertPersonalTeacherAccess(
 }
 
 /**
- * Sanitizes search queries to protect against wildcard abuse or injection
+ * Sanitizes search queries to protect against wildcard abuse or PostgREST filter injection.
+ * Strips HTML control chars, SQL injection delimiters, quotes, wildcards, and PostgREST operators.
  */
 export function sanitizeSearchQuery(query?: string): string {
-  if (!query) return "";
+  if (!query || typeof query !== "string") return "";
   return query
     .trim()
-    .replace(/[<>'"%_]/g, "")
+    .replace(/[<>'"%_(),;`~$^|&{}\\[\]]/g, "")
     .slice(0, 100);
 }

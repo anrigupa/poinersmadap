@@ -174,6 +174,48 @@ let IN_MEMORY_POINT_REDUCTIONS: PointReductionItem[] = [
   },
 ];
 
+/**
+ * Internal helper: Verifies that a staff user is either an Administrator or a Guru BK (counselor).
+ * Remediates HIGH-04: Prevents regular subject teachers (guru_mapel) from accessing BK merit verification.
+ */
+async function isAuthorizedCounselorOrAdmin(
+  session: NonNullable<Awaited<ReturnType<typeof getCurrentSession>>>
+): Promise<boolean> {
+  if (session.user.role === "admin") return true;
+  if (session.user.role !== "guru") return false;
+
+  if (
+    session.user.teacherType === "counselor" ||
+    session.user.specialization === "guru_bk"
+  ) {
+    return true;
+  }
+
+  if (isSupabaseLive()) {
+    try {
+      const supabase = process.env.SUPABASE_SERVICE_ROLE_KEY
+        ? createAdminClient()
+        : await createClient();
+      const { data: teacher } = await supabase
+        .from("teachers")
+        .select("teacher_type, specialization")
+        .eq("profile_id", session.user.id)
+        .maybeSingle();
+
+      if (
+        teacher &&
+        (teacher.teacher_type === "counselor" || teacher.specialization === "guru_bk")
+      ) {
+        return true;
+      }
+    } catch {
+      // Fallback check failed
+    }
+  }
+
+  return false;
+}
+
 // ----------------------------------------------------------------------------
 // 1. GET STUDENT MERITS DASHBOARD DATA
 // ----------------------------------------------------------------------------
@@ -188,23 +230,40 @@ export async function getStudentMeritsData(
   }
 
   const isStudent = session.user.role === "siswa";
-  const currentUserId = isStudent ? session.user.id : (overrideProfileId || session.user.id);
-  const currentNis = isStudent ? (session.user.nis || "10595") : (overrideNis || session.user.nis || "10595");
 
-  // 1. Resolve Student Record
-  const studentsRes = await getStudentsAction({ pageSize: 100 });
-  let student = studentsRes.items.find((s) => {
-    if (overrideStudentId) {
-      return s.id === overrideStudentId;
+  // Staff inspecting another student must be Admin or Guru BK
+  if (!isStudent && (overrideProfileId || overrideNis || overrideStudentId)) {
+    const allowed = await isAuthorizedCounselorOrAdmin(session);
+    if (!allowed) {
+      throw new Error("Akses ditolak: Hanya Guru BK atau Administrator yang berwenang mengakses data prestasi siswa lain.");
     }
-    return s.profileId === currentUserId || s.nis === currentNis;
-  });
-
-  if (!student) {
-    student = studentsRes.items[0];
   }
 
-  const studentId = student?.id || "27e6ca1e-4a4e-4c61-84d6-72683c3ec7dd";
+  // Strict personal isolation (HIGH-02): Students can NEVER override target IDs
+  const currentUserId = isStudent ? session.user.id : (overrideProfileId || session.user.id);
+  const currentNis = isStudent ? session.user.nis : (overrideNis || session.user.nis);
+  const effectiveOverrideStudentId = isStudent ? undefined : overrideStudentId;
+
+  // 1. Resolve Student Record
+  const studentsRes = await getStudentsAction({ pageSize: 200 });
+  let student = studentsRes.items.find((s) => {
+    if (effectiveOverrideStudentId) {
+      return s.id === effectiveOverrideStudentId;
+    }
+    return s.profileId === currentUserId || (currentNis && s.nis === currentNis);
+  });
+
+  // Prevent first-row fallback leakage (HIGH-02): Never fall back to studentsRes.items[0] for students in production
+  if (!student) {
+    if (isStudent && process.env.NODE_ENV !== "development") {
+      throw new Error("Data profil siswa tidak ditemukan untuk akun ini.");
+    }
+    if (!isStudent || process.env.NODE_ENV === "development") {
+      student = studentsRes.items[0];
+    }
+  }
+
+  const studentId = student?.id || session.user.id;
 
   // 2. Fetch Achievements
   let achievements: StudentAchievementItem[] = [];
@@ -259,8 +318,8 @@ export async function getStudentMeritsData(
     }
   }
 
-  // Fallback to in-memory store if DB query returned nothing or table not present
-  if (achievements.length === 0) {
+  // Fallback to in-memory store if DB query returned nothing (Development mode only)
+  if (achievements.length === 0 && process.env.NODE_ENV === "development") {
     achievements = IN_MEMORY_STUDENT_MERITS.filter(
       (m) => m.studentId === studentId || studentId.includes("27e6ca1e")
     );
@@ -282,28 +341,7 @@ export async function getStudentMeritsData(
         ? createAdminClient()
         : await createClient();
 
-      // Check counseling_records with point_reduction > 0
-      const { data: cData, error: cErr } = await supabase
-        .from("counseling_records")
-        .select("*")
-        .eq("student_id", studentId)
-        .gt("point_reduction", 0)
-        .order("counseling_date", { ascending: false });
-
-      if (!cErr && cData && cData.length > 0) {
-        reductions = cData.map((c: any) => ({
-          id: c.id,
-          date: c.counseling_date,
-          formattedDate: formatIndonesianDate(c.counseling_date),
-          violationOrReason: c.reduction_reason || c.counseling_type || "Pemutihan Poin Kedisiplinan",
-          originalPoints: c.previous_points || 0,
-          reductionPoints: c.point_reduction || 0,
-          remainingPoints: c.resulting_points || 0,
-          approvedBy: c.counselor_name || "Guru BK",
-        }));
-      }
-
-      // Also check merit_deductions if table exists
+      // Authoritative Ledger: Query strictly from merit_deductions
       const { data: mData, error: mErr } = await supabase
         .from("merit_deductions")
         .select("*")
@@ -311,7 +349,7 @@ export async function getStudentMeritsData(
         .order("deduction_date", { ascending: false });
 
       if (!mErr && mData && mData.length > 0) {
-        const meritReds = mData.map((m: any) => ({
+        reductions = mData.map((m: any) => ({
           id: m.id,
           date: m.deduction_date,
           formattedDate: formatIndonesianDate(m.deduction_date),
@@ -321,17 +359,14 @@ export async function getStudentMeritsData(
           remainingPoints: m.remaining_points || 0,
           approvedBy: m.approved_by || "Guru BK / Admin",
         }));
-        reductions = [...reductions, ...meritReds].sort(
-          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-        );
       }
     } catch {
       // Fallback below
     }
   }
 
-  // Fallback reductions if empty
-  if (reductions.length === 0) {
+  // Fallback reductions if empty (Development mode only)
+  if (reductions.length === 0 && process.env.NODE_ENV === "development") {
     reductions = [...IN_MEMORY_POINT_REDUCTIONS];
   }
 
@@ -441,10 +476,17 @@ export async function submitAchievementAction(formData: unknown) {
   const { achievementName, category, description, evidenceUrl } = parsed.data;
 
   // Resolve student id
-  const studentsRes = await getStudentsAction({ pageSize: 100 });
+  const studentsRes = await getStudentsAction({ pageSize: 200 });
   const student = studentsRes.items.find(
-    (s) => s.profileId === session.user.id || s.nis === session.user.nis
+    (s) => s.profileId === session.user.id || (session.user.nis && s.nis === session.user.nis)
   );
+
+  if (!student && process.env.NODE_ENV !== "development") {
+    return {
+      success: false,
+      message: "Data profil siswa tidak ditemukan untuk akun ini.",
+    };
+  }
 
   const studentId = student?.id || "27e6ca1e-4a4e-4c61-84d6-72683c3ec7dd";
   const now = new Date().toISOString();
@@ -510,14 +552,25 @@ export async function submitAchievementAction(formData: unknown) {
 }
 
 // ----------------------------------------------------------------------------
-// 3. APPLY MERIT REDUCTION ACTION (PEMUTIHAN POIN PELANGGARAN)
+// 3. APPLY MERIT REDUCTION ACTION (SEC-IDOR-03 HARDENED: GURU BK / ADMIN ONLY)
 // ----------------------------------------------------------------------------
 export async function applyMeritReductionAction(formData: unknown) {
   const session = await getCurrentSession();
   if (!session) {
     return {
       success: false,
-      message: "Akses ditolak: Anda harus login untuk mengajukan pemutihan.",
+      message: "Akses ditolak: Anda harus login terlebih dahulu.",
+    };
+  }
+
+  // SEC-IDOR-03 Hardening: Restrict execution strictly to Counselor (Guru BK) and Admin.
+  // Self-service pemutihan is not permitted; reductions must be conducted through Guru BK counseling.
+  const isAuthorized = await isAuthorizedCounselorOrAdmin(session);
+  if (!isAuthorized) {
+    return {
+      success: false,
+      message:
+        "Akses ditolak: Hanya Guru BK atau Administrator yang berwenang melakukan pemutihan poin siswa. Pengajuan pemutihan poin diproses melalui sesi bimbingan bersama Guru BK.",
     };
   }
 
@@ -531,13 +584,19 @@ export async function applyMeritReductionAction(formData: unknown) {
 
   const { pointsToConvert, reason, studentId: requestedStudentId } = parsed.data;
 
-  const isStaff = session.user.role === "guru" || session.user.role === "admin";
-  const targetStudentId = (isStaff && requestedStudentId) ? requestedStudentId : undefined;
+  if (!requestedStudentId) {
+    return {
+      success: false,
+      message: "ID siswa target wajib disertakan untuk memproses pemutihan poin.",
+    };
+  }
+
+  const targetStudentId = requestedStudentId;
 
   // Fetch current merits data
   const currentData = await getStudentMeritsData(
-    targetStudentId ? undefined : session.user.id,
-    targetStudentId ? undefined : session.user.nis,
+    undefined,
+    undefined,
     targetStudentId
   );
   const { availableMeritPoints } = currentData.meritBalance;
@@ -645,13 +704,14 @@ export async function verifyAchievementAction(
   rejectionReason?: string
 ) {
   const session = await getCurrentSession();
-  if (!session || (session.user.role !== "admin" && session.user.role !== "guru")) {
+  if (!session || !(await isAuthorizedCounselorOrAdmin(session))) {
     return {
       success: false,
       message: "Akses ditolak: Hanya Admin atau Guru BK yang dapat memverifikasi prestasi.",
     };
   }
 
+  const clampedMeritPoints = Math.min(100, Math.max(0, Math.floor(Number(meritPoints) || 0)));
   const now = new Date().toISOString();
   const verifierName = session.user.fullName || (session.user.role === "admin" ? "Administrator" : "Guru BK");
 
@@ -661,7 +721,7 @@ export async function verifyAchievementAction(
     IN_MEMORY_STUDENT_MERITS[index] = {
       ...IN_MEMORY_STUDENT_MERITS[index],
       status,
-      meritPoints: status === "approved" ? Math.max(0, meritPoints) : 0,
+      meritPoints: status === "approved" ? clampedMeritPoints : 0,
       verifiedByName: verifierName,
       verifiedAt: now,
       rejectionReason: status === "rejected" ? (rejectionReason || "Tidak memenuhi kriteria bukti") : null,
@@ -679,7 +739,7 @@ export async function verifyAchievementAction(
         .from("student_merits")
         .update({
           status,
-          merit_points: status === "approved" ? Math.max(0, meritPoints) : 0,
+          merit_points: status === "approved" ? clampedMeritPoints : 0,
           verified_by: session.user.id,
           verified_at: now,
           rejection_reason: status === "rejected" ? rejectionReason : null,
@@ -713,8 +773,10 @@ export interface CounselorAchievementItem extends StudentAchievementItem {
 
 export async function getAllStudentAchievementsAction(): Promise<CounselorAchievementItem[]> {
   const session = await getCurrentSession();
-  if (!session || (session.user.role !== "guru" && session.user.role !== "admin")) {
-    throw new Error("Akses ditolak: Hanya Guru BK atau Administrator.");
+  if (!session || !(await isAuthorizedCounselorOrAdmin(session))) {
+    if (process.env.NODE_ENV !== "development") {
+      throw new Error("Akses ditolak: Hanya Guru BK atau Administrator.");
+    }
   }
 
   const studentsRes = await getStudentsAction({ pageSize: 100 });
@@ -784,8 +846,8 @@ export async function getAllStudentAchievementsAction(): Promise<CounselorAchiev
     }
   }
 
-  if (results.length === 0) {
-    // Map in-memory items
+  if (results.length === 0 && process.env.NODE_ENV === "development") {
+    // Map in-memory items (Development mode only)
     results = IN_MEMORY_STUDENT_MERITS.map((item) => {
       const s = studentMap.get(item.studentId);
       const isFikri = item.studentId.includes("27e6ca1e");
@@ -812,8 +874,10 @@ export interface CounselorReductionItem extends PointReductionItem {
 
 export async function getAllMeritDeductionsAction(): Promise<CounselorReductionItem[]> {
   const session = await getCurrentSession();
-  if (!session || (session.user.role !== "guru" && session.user.role !== "admin")) {
-    throw new Error("Akses ditolak: Hanya Guru BK atau Administrator.");
+  if (!session || !(await isAuthorizedCounselorOrAdmin(session))) {
+    if (process.env.NODE_ENV !== "development") {
+      throw new Error("Akses ditolak: Hanya Guru BK atau Administrator.");
+    }
   }
 
   const studentsRes = await getStudentsAction({ pageSize: 100 });
@@ -827,53 +891,8 @@ export async function getAllMeritDeductionsAction(): Promise<CounselorReductionI
         ? createAdminClient()
         : await createClient();
 
-      const { data: cData, error: cErr } = await supabase
-        .from("counseling_records")
-        .select(`
-          id,
-          student_id,
-          counseling_date,
-          reduction_reason,
-          counseling_type,
-          previous_points,
-          point_reduction,
-          resulting_points,
-          counselor_name,
-          students:student_id (
-            id,
-            nis,
-            class_name,
-            profiles:profile_id (full_name)
-          )
-        `)
-        .gt("point_reduction", 0)
-        .order("counseling_date", { ascending: false });
-
-      if (!cErr && cData && cData.length > 0) {
-        results = cData.map((c: any) => {
-          const sObj = c.students || {};
-          const sProf = Array.isArray(sObj.profiles) ? sObj.profiles[0] : sObj.profiles;
-          const sFallback = studentMap.get(c.student_id);
-
-          return {
-            id: c.id,
-            studentId: c.student_id,
-            studentName: sProf?.full_name || sFallback?.fullName || "Siswa",
-            studentNis: sObj.nis || sFallback?.nis || "-",
-            className: sObj.class_name || sFallback?.className || "-",
-            date: c.counseling_date,
-            formattedDate: formatIndonesianDate(c.counseling_date),
-            violationOrReason: c.reduction_reason || c.counseling_type || "Pemutihan Poin Kedisiplinan",
-            originalPoints: c.previous_points || 0,
-            reductionPoints: c.point_reduction || 0,
-            remainingPoints: c.resulting_points || 0,
-            approvedBy: c.counselor_name || "Guru BK",
-          };
-        });
-      }
-
-      // Also check merit_deductions
-      const { data: mData } = await supabase
+      // Query strictly from public.merit_deductions (Authoritative Pemutihan Ledger)
+      const { data: mData, error: mErr } = await supabase
         .from("merit_deductions")
         .select(`
           id,
@@ -893,8 +912,8 @@ export async function getAllMeritDeductionsAction(): Promise<CounselorReductionI
         `)
         .order("deduction_date", { ascending: false });
 
-      if (mData && mData.length > 0) {
-        const mappedM = mData.map((m: any) => {
+      if (!mErr && mData && mData.length > 0) {
+        results = mData.map((m: any) => {
           const sObj = m.students || {};
           const sProf = Array.isArray(sObj.profiles) ? sObj.profiles[0] : sObj.profiles;
           const sFallback = studentMap.get(m.student_id);
@@ -914,16 +933,13 @@ export async function getAllMeritDeductionsAction(): Promise<CounselorReductionI
             approvedBy: m.approved_by || "Guru BK / Admin",
           };
         });
-        results = [...results, ...mappedM].sort(
-          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-        );
       }
     } catch (err) {
       console.warn("Supabase fetch all reductions failed:", err);
     }
   }
 
-  if (results.length === 0) {
+  if (results.length === 0 && process.env.NODE_ENV === "development") {
     results = IN_MEMORY_POINT_REDUCTIONS.map((item) => {
       const s = studentMap.get("27e6ca1e-4a4e-4c61-84d6-72683c3ec7dd");
       return {

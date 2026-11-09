@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { ShieldCheck, ArrowLeft, School, Sparkles } from "lucide-react";
+import { ShieldCheck, ArrowLeft } from "lucide-react";
 import LoginForm from "@/features/auth/components/LoginForm";
 
 export const metadata = {
@@ -69,7 +69,7 @@ export default function LoginPage() {
 
       {/* Bottom spacer for flex alignment */}
       <footer className="relative z-10 py-4 text-center text-[10px] text-slate-600">
-        Versi 1.0.0 (Next.js 15 App Router & Supabase Auth)
+        Versi 1.0.0
       </footer>
     </main>
   );

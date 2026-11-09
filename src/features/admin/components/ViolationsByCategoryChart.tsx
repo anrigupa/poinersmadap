@@ -54,7 +54,7 @@ export default function ViolationsByCategoryChart({
       <div>
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 dark:bg-purple-950/60 dark:text-purple-400 flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400 flex items-center justify-center shrink-0">
               <PieChart className="w-4 h-4" />
             </div>
             <div>
@@ -113,10 +113,10 @@ export default function ViolationsByCategoryChart({
             <Inbox className="w-5 h-5" />
           </div>
           <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
-            Belum Ada Komposisi Kategori
+            Belum ada statistik tersedia
           </p>
           <p className="text-[11px] text-slate-400 dark:text-slate-500 max-w-xs mt-0.5">
-            Proporsi kategori Ringan, Sedang, dan Berat akan tampil setelah ada insiden tercatat.
+            Proporsi kategori pelanggaran akan tampil setelah ada insiden tercatat.
           </p>
         </div>
       ) : (

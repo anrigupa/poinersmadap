@@ -25,6 +25,10 @@ export const submitAchievementSchema = z.object({
   evidenceUrl: z
     .string()
     .max(500, "Tautan bukti maksimal 500 karakter")
+    .refine(
+      (val) => !val || /^https?:\/\//i.test(val.trim()),
+      "Tautan bukti harus berupa URL valid yang diawali http:// atau https://"
+    )
     .optional()
     .or(z.literal("")),
 });

@@ -1,0 +1,59 @@
+{
+  "id": "surat-pernyataan",
+  "title": "Surat Pernyataan Perjanjian Disiplin Siswa",
+  "category": "counseling",
+  "version": "1.0.0",
+  "header": {
+    "governmentAgency": "{{header_gov_agency}}",
+    "educationDepartment": "{{header_edu_dept}}",
+    "institutionName": "{{header_institution_name}}",
+    "addressLine": "{{header_address}}",
+    "contactLine": "{{header_contact}}",
+    "leftEmblemPlaceholder": "SMADAP",
+    "rightEmblemPlaceholder": "PANGKEP"
+  },
+  "metadata": {
+    "referenceNumber": "{{letter_number}}",
+    "attachment": "-",
+    "subject": "Surat Pernyataan Disiplin & Komitmen Belajar Siswa",
+    "dateLocation": "{{date_location}}"
+  },
+  "recipient": {
+    "salutation": "",
+    "addressee": "SURAT PERNYATAAN & KOMITMEN DISIPLIN SISWA",
+    "location": ""
+  },
+  "opening": [
+    "Yang bertanda tangan di bawah ini:",
+    "Menyatakan dengan sesungguhnya bahwa saya menyadari segala bentuk pelanggaran tata tertib sekolah yang telah saya lakukan, dan berkomitmen sungguh-sungguh untuk memperbaiki sikap dan kedisiplinan:"
+  ],
+  "studentInfoSections": [
+    { "label": "Nama Lengkap Siswa", "value": "{{student_name}}" },
+    { "label": "NISN / NIS", "value": "{{student_nisn}} / {{student_nis}}" },
+    { "label": "Kelas", "value": "{{student_class}}" },
+    { "label": "Akumulasi Poin Pelanggaran", "value": "{{total_violation_points}} Poin" }
+  ],
+  "invitationIntro": "Dengan ini berjanji dan berkomitmen bahwa:",
+  "meetingSchedule": [
+    { "label": "Komitmen 1", "value": "Menaati seluruh peraturan dan tata tertib sekolah yang berlaku tanpa pengecualian." },
+    { "label": "Komitmen 2", "value": "Tidak mengulangi pelanggaran yang telah dilakukan maupun melakukan pelanggaran lainnya." },
+    { "label": "Komitmen 3", "value": "Mengikuti seluruh program pembinaan dan bimbingan konseling yang ditetapkan oleh sekolah." }
+  ],
+  "notesIntro": "Ketentuan:",
+  "notes": "Apabila di kemudian hari saya mengulangi pelanggaran tata tertib sekolah, saya bersedia menerima sanksi yang lebih berat sesuai dengan ketentuan peraturan sekolah yang berlaku.",
+  "closing": [
+    "Demikian surat pernyataan ini saya buat dengan penuh kesadaran dan tanpa ada paksaan dari pihak mana pun."
+  ],
+  "signatures": {
+    "left": {
+      "role": "Mengetahui, Orang Tua / Wali Siswa,",
+      "placeholderName": "( .................................................... )",
+      "caption": "Tanda Tangan & Nama Terang"
+    },
+    "right": {
+      "role": "Yang Membuat Pernyataan (Siswa),",
+      "name": "{{student_name}}",
+      "identifier": "NIS. {{student_nis}}"
+    }
+  }
+}

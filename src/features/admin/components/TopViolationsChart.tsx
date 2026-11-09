@@ -76,7 +76,7 @@ export default function TopViolationsChart({
               <Inbox className="w-5 h-5" />
             </div>
             <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
-              Belum Ada Data Pelanggaran
+              Belum ada data pelanggaran
             </p>
             <p className="text-[11px] text-slate-400 dark:text-slate-500 max-w-xs mt-0.5">
               Daftar 10 pelanggaran paling sering terjadi akan tampil setelah laporan masuk.

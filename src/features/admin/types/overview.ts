@@ -79,6 +79,6 @@ export interface AdminOverviewData {
     year: string;
     semester: string;
   };
-  dataSource: "supabase_live" | "demo_fallback";
+  dataSource: "supabase_live";
   lastUpdated?: string;
 }
