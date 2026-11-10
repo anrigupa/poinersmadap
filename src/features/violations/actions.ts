@@ -1,6 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+
+function safeRevalidatePath(path: string, type?: "page" | "layout") {
+  try {
+    revalidatePath(path, type);
+  } catch {
+    // Non-request context
+  }
+}
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentSession } from "@/features/auth/actions/authActions";
@@ -197,12 +205,12 @@ export async function recordStudentViolationAction(
       };
     }
 
-    revalidatePath("/guru");
-    revalidatePath("/guru/history");
-    revalidatePath("/guru/report");
-    revalidatePath("/admin/students");
-    revalidatePath("/admin");
-    revalidatePath("/siswa");
+    safeRevalidatePath("/guru");
+    safeRevalidatePath("/guru/history");
+    safeRevalidatePath("/guru/report");
+    safeRevalidatePath("/admin/students");
+    safeRevalidatePath("/admin");
+    safeRevalidatePath("/siswa");
 
     const result: RecordViolationResult = {
       violationId: inserted?.id || violationId,

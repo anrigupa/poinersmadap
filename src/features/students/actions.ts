@@ -1,6 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+
+function safeRevalidatePath(path: string, type?: "page" | "layout") {
+  try {
+    revalidatePath(path, type);
+  } catch {
+    // Non-request context
+  }
+}
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentSession } from "@/features/auth/actions/authActions";
@@ -530,7 +538,7 @@ export async function addStudentAction(
           createdAt: new Date().toISOString(),
         };
 
-        revalidatePath("/admin/students");
+        safeRevalidatePath("/admin/students");
         return {
           success: true,
           message: `Siswa "${data.fullName}" berhasil ditambahkan dan akun Supabase Auth telah aktif.`,
@@ -568,7 +576,7 @@ export async function addStudentAction(
   };
 
   INITIAL_STUDENTS.unshift(newStudent);
-  revalidatePath("/admin/students");
+  safeRevalidatePath("/admin/students");
 
   return {
     success: true,
@@ -671,7 +679,7 @@ export async function editStudentAction(
         s.id === studentId ? editedItem : s
       );
 
-      revalidatePath("/admin/students");
+      safeRevalidatePath("/admin/students");
       return {
         success: true,
         message: `Data siswa "${data.fullName}" berhasil diperbarui.`,
@@ -706,7 +714,7 @@ export async function editStudentAction(
   };
 
   INITIAL_STUDENTS[idx] = updatedItem;
-  revalidatePath("/admin/students");
+  safeRevalidatePath("/admin/students");
 
   return {
     success: true,
@@ -745,7 +753,7 @@ export async function deleteStudentAction(
       }
 
       INITIAL_STUDENTS = INITIAL_STUDENTS.filter((s) => s.id !== studentId);
-      revalidatePath("/admin/students");
+      safeRevalidatePath("/admin/students");
       return {
         success: true,
         message: "Data siswa dan akun login berhasil dihapus.",
@@ -756,7 +764,7 @@ export async function deleteStudentAction(
   }
 
   INITIAL_STUDENTS = INITIAL_STUDENTS.filter((s) => s.id !== studentId);
-  revalidatePath("/admin/students");
+  safeRevalidatePath("/admin/students");
 
   return {
     success: true,
@@ -841,7 +849,7 @@ export async function applyStudentViolationPoints(
     updatedAt: new Date().toISOString(),
   };
 
-  revalidatePath("/admin/students");
+  safeRevalidatePath("/admin/students");
   revalidatePath("/guru");
   revalidatePath("/siswa");
   revalidatePath("/");

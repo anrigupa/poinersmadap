@@ -1,6 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+
+function safeRevalidatePath(path: string, type?: "page" | "layout") {
+  try {
+    safeRevalidatePath(path, type);
+  } catch {
+    // Non-request context
+  }
+}
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentSession } from "@/features/auth/actions/authActions";
@@ -97,7 +105,24 @@ async function queryTeachersInternal(
       }
 
       if (safeSearch) {
-        query = query.or(`nip.ilike.%${safeSearch}%,assigned_class.ilike.%${safeSearch}%`);
+        let matchingProfileIds: string[] = [];
+        try {
+          const { data: matchedProfiles } = await supabase
+            .from("profiles")
+            .select("id")
+            .or(`full_name.ilike.%${safeSearch}%,email.ilike.%${safeSearch}%`);
+          if (matchedProfiles && matchedProfiles.length > 0) {
+            matchingProfileIds = matchedProfiles.map((p: any) => p.id);
+          }
+        } catch {
+          // ignore
+        }
+
+        if (matchingProfileIds.length > 0) {
+          query = query.or(`nip.ilike.%${safeSearch}%,assigned_class.ilike.%${safeSearch}%,profile_id.in.(${matchingProfileIds.join(",")})`);
+        } else {
+          query = query.or(`nip.ilike.%${safeSearch}%,assigned_class.ilike.%${safeSearch}%`);
+        }
       }
 
       const from = (page - 1) * pageSize;
@@ -136,7 +161,24 @@ async function queryTeachersInternal(
         }
 
         if (safeSearch) {
-          fallbackQuery = fallbackQuery.or(`nip.ilike.%${safeSearch}%,assigned_class.ilike.%${safeSearch}%`);
+          let matchingProfileIds: string[] = [];
+          try {
+            const { data: matchedProfiles } = await supabase
+              .from("profiles")
+              .select("id")
+              .or(`full_name.ilike.%${safeSearch}%,email.ilike.%${safeSearch}%`);
+            if (matchedProfiles && matchedProfiles.length > 0) {
+              matchingProfileIds = matchedProfiles.map((p: any) => p.id);
+            }
+          } catch {
+            // ignore
+          }
+
+          if (matchingProfileIds.length > 0) {
+            fallbackQuery = fallbackQuery.or(`nip.ilike.%${safeSearch}%,assigned_class.ilike.%${safeSearch}%,profile_id.in.(${matchingProfileIds.join(",")})`);
+          } else {
+            fallbackQuery = fallbackQuery.or(`nip.ilike.%${safeSearch}%,assigned_class.ilike.%${safeSearch}%`);
+          }
         }
 
         const fallbackRes = await fallbackQuery
@@ -423,8 +465,8 @@ export async function addTeacherAction(
         }
 
         if (teacherRecord) {
-          revalidatePath("/admin/teachers");
-          revalidatePath("/");
+          safeRevalidatePath("/admin/teachers");
+          safeRevalidatePath("/");
           return {
             success: true,
             message: `Guru ${fullName} berhasil ditambahkan dan Akun Supabase Auth telah aktif!`,
@@ -472,8 +514,8 @@ export async function addTeacherAction(
   };
 
   INITIAL_TEACHERS.unshift(newTeacher);
-  revalidatePath("/admin/teachers");
-  revalidatePath("/");
+  safeRevalidatePath("/admin/teachers");
+  safeRevalidatePath("/");
 
   return {
     success: true,
@@ -563,8 +605,8 @@ export async function editTeacherAction(
       }
 
       if (!tchError) {
-        revalidatePath("/admin/teachers");
-        revalidatePath("/");
+        safeRevalidatePath("/admin/teachers");
+        safeRevalidatePath("/");
         return {
           success: true,
           message: `Data Guru ${fullName} berhasil diperbarui.`,
@@ -589,8 +631,8 @@ export async function editTeacherAction(
     };
   }
 
-  revalidatePath("/admin/teachers");
-  revalidatePath("/");
+  safeRevalidatePath("/admin/teachers");
+  safeRevalidatePath("/");
   return {
     success: true,
     message: `Data Guru ${fullName} berhasil diperbarui.`,
@@ -632,7 +674,7 @@ export async function deleteTeacherAction(
       }
 
       INITIAL_TEACHERS = INITIAL_TEACHERS.filter((t) => t.id !== id);
-      revalidatePath("/admin/teachers");
+      safeRevalidatePath("/admin/teachers");
       return {
         success: true,
         message: "Data guru dan akun otentikasi berhasil dihapus.",
@@ -647,7 +689,7 @@ export async function deleteTeacherAction(
   }
 
   INITIAL_TEACHERS = INITIAL_TEACHERS.filter((t) => t.id !== id);
-  revalidatePath("/admin/teachers");
+  safeRevalidatePath("/admin/teachers");
 
   return {
     success: true,
@@ -677,7 +719,7 @@ export async function resetTeacherPasswordAction(
       });
 
       if (!error) {
-        revalidatePath("/admin/teachers");
+        safeRevalidatePath("/admin/teachers");
         return {
           success: true,
           message: `Kata sandi akun guru berhasil direset! Password baru: "${finalPassword}"`,
@@ -689,7 +731,7 @@ export async function resetTeacherPasswordAction(
     }
   }
 
-  revalidatePath("/admin/teachers");
+  safeRevalidatePath("/admin/teachers");
   return {
     success: true,
     message: `Kata sandi akun guru berhasil diperbarui! Password baru sementara: "${finalPassword}"`,

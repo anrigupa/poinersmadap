@@ -1,7 +1,16 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+
+function safeRevalidatePath(path: string, type?: "page" | "layout") {
+  try {
+    safeRevalidatePath(path, type);
+  } catch {
+    // Non-request context
+  }
+}
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentSession } from "@/features/auth/actions/authActions";
 import { sanitizeSearchQuery } from "@/lib/security/guards";
 import {
@@ -50,7 +59,7 @@ function isSupabaseLive(): boolean {
 export async function getCategoriesAction(): Promise<ViolationCategory[]> {
   if (isSupabaseLive()) {
     try {
-      const supabase = await createClient();
+      const supabase = process.env.SUPABASE_SERVICE_ROLE_KEY ? createAdminClient() : await createClient();
       const { data, error } = await supabase
         .from("violation_categories")
         .select("id, name, severity_level, description, color_code, violation_types(count)")
@@ -100,7 +109,7 @@ export async function createCategoryAction(
 
   if (isSupabaseLive()) {
     try {
-      const supabase = await createClient();
+      const supabase = process.env.SUPABASE_SERVICE_ROLE_KEY ? createAdminClient() : await createClient();
       const { data, error } = await supabase
         .from("violation_categories")
         .insert({
@@ -113,7 +122,7 @@ export async function createCategoryAction(
         .single();
 
       if (!error && data) {
-        revalidatePath("/admin/rules");
+        safeRevalidatePath("/admin/rules");
         return {
           success: true,
           message: `Kategori "${name}" berhasil ditambahkan.`,
@@ -143,7 +152,7 @@ export async function createCategoryAction(
   };
 
   INITIAL_CATEGORIES.push(newCat);
-  revalidatePath("/admin/rules");
+  safeRevalidatePath("/admin/rules");
 
   return {
     success: true,
@@ -171,7 +180,7 @@ export async function updateCategoryAction(
 
   if (isSupabaseLive()) {
     try {
-      const supabase = await createClient();
+      const supabase = process.env.SUPABASE_SERVICE_ROLE_KEY ? createAdminClient() : await createClient();
       const { data, error } = await supabase
         .from("violation_categories")
         .update({
@@ -185,7 +194,7 @@ export async function updateCategoryAction(
         .single();
 
       if (!error && data) {
-        revalidatePath("/admin/rules");
+        safeRevalidatePath("/admin/rules");
         return {
           success: true,
           message: `Kategori "${name}" berhasil diperbarui.`,
@@ -212,7 +221,7 @@ export async function updateCategoryAction(
     );
   }
 
-  revalidatePath("/admin/rules");
+  safeRevalidatePath("/admin/rules");
   return {
     success: true,
     message: `Kategori "${name}" berhasil diperbarui.`,
@@ -233,10 +242,10 @@ export async function deleteCategoryAction(id: string): Promise<ActionResponse> 
 
   if (isSupabaseLive()) {
     try {
-      const supabase = await createClient();
+      const supabase = process.env.SUPABASE_SERVICE_ROLE_KEY ? createAdminClient() : await createClient();
       const { error } = await supabase.from("violation_categories").delete().eq("id", id);
       if (!error) {
-        revalidatePath("/admin/rules");
+        safeRevalidatePath("/admin/rules");
         return { success: true, message: "Kategori berhasil dihapus." };
       }
     } catch (err) {
@@ -245,7 +254,7 @@ export async function deleteCategoryAction(id: string): Promise<ActionResponse> 
   }
 
   INITIAL_CATEGORIES = INITIAL_CATEGORIES.filter((c) => c.id !== id);
-  revalidatePath("/admin/rules");
+  safeRevalidatePath("/admin/rules");
   return { success: true, message: "Kategori berhasil dihapus." };
 }
 
@@ -269,7 +278,7 @@ export async function getViolationsAction(
 
   if (isSupabaseLive()) {
     try {
-      const supabase = await createClient();
+      const supabase = process.env.SUPABASE_SERVICE_ROLE_KEY ? createAdminClient() : await createClient();
       let query = supabase.from("violation_types").select(
         `
         id,
@@ -418,7 +427,7 @@ export async function createViolationAction(
 
   if (isSupabaseLive()) {
     try {
-      const supabase = await createClient();
+      const supabase = process.env.SUPABASE_SERVICE_ROLE_KEY ? createAdminClient() : await createClient();
       const { data, error } = await supabase
         .from("violation_types")
         .insert({
@@ -434,7 +443,7 @@ export async function createViolationAction(
         .single();
 
       if (!error && data) {
-        revalidatePath("/admin/rules");
+        safeRevalidatePath("/admin/rules");
         return {
           success: true,
           message: `Aturan "${name}" (+${points} Poin) berhasil disimpan.`,
@@ -459,7 +468,7 @@ export async function createViolationAction(
   };
 
   INITIAL_VIOLATIONS.unshift(newItem);
-  revalidatePath("/admin/rules");
+  safeRevalidatePath("/admin/rules");
 
   return {
     success: true,
@@ -488,7 +497,7 @@ export async function updateViolationAction(
 
   if (isSupabaseLive()) {
     try {
-      const supabase = await createClient();
+      const supabase = process.env.SUPABASE_SERVICE_ROLE_KEY ? createAdminClient() : await createClient();
       const { error } = await supabase
         .from("violation_types")
         .update({
@@ -502,7 +511,7 @@ export async function updateViolationAction(
         .eq("id", id);
 
       if (!error) {
-        revalidatePath("/admin/rules");
+        safeRevalidatePath("/admin/rules");
         return {
           success: true,
           message: `Aturan "${name}" berhasil diperbarui.`,
@@ -528,7 +537,7 @@ export async function updateViolationAction(
     };
   }
 
-  revalidatePath("/admin/rules");
+  safeRevalidatePath("/admin/rules");
   return {
     success: true,
     message: `Aturan "${name}" berhasil diperbarui.`,
@@ -540,10 +549,10 @@ export async function deleteViolationAction(id: string): Promise<ActionResponse>
   if (authErr) return authErr;
   if (isSupabaseLive()) {
     try {
-      const supabase = await createClient();
+      const supabase = process.env.SUPABASE_SERVICE_ROLE_KEY ? createAdminClient() : await createClient();
       const { error } = await supabase.from("violation_types").delete().eq("id", id);
       if (!error) {
-        revalidatePath("/admin/rules");
+        safeRevalidatePath("/admin/rules");
         return { success: true, message: "Aturan pelanggaran berhasil dihapus." };
       }
     } catch (err) {
@@ -552,7 +561,7 @@ export async function deleteViolationAction(id: string): Promise<ActionResponse>
   }
 
   INITIAL_VIOLATIONS = INITIAL_VIOLATIONS.filter((v) => v.id !== id);
-  revalidatePath("/admin/rules");
+  safeRevalidatePath("/admin/rules");
 
   return {
     success: true,

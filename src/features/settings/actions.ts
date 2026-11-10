@@ -144,14 +144,18 @@ function enforceSingleActiveAndSort(
 }
 
 function revalidateAllPortals() {
-  revalidatePath("/", "layout");
-  revalidatePath("/admin");
-  revalidatePath("/admin/settings");
-  revalidatePath("/admin/students");
-  revalidatePath("/admin/teachers");
-  revalidatePath("/admin/rules");
-  revalidatePath("/guru");
-  revalidatePath("/siswa");
+  try {
+    revalidatePath("/", "layout");
+    revalidatePath("/admin");
+    revalidatePath("/admin/settings");
+    revalidatePath("/admin/students");
+    revalidatePath("/admin/teachers");
+    revalidatePath("/admin/rules");
+    revalidatePath("/guru");
+    revalidatePath("/siswa");
+  } catch {
+    // Non-request context
+  }
 }
 
 /**

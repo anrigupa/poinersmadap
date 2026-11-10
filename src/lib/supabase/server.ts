@@ -8,14 +8,19 @@ export interface CreateClientConfig {
 }
 
 export async function createClient(config?: CreateClientConfig) {
-  const cookieStore = await cookies();
+  let cookieStore: any = null;
+  try {
+    cookieStore = await cookies();
+  } catch {
+    // Outside request scope fallback (testing or background tasks)
+  }
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder-project.supabase.co";
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder-anon-key";
 
   // Determine persistence: explicitly provided (e.g. login), or derived from verified HMAC session cookie
   let isPersistent = config?.isPersistent;
   if (isPersistent === undefined) {
-    const sessionCookie = cookieStore.get(AUTH_COOKIE_NAME)?.value;
+    const sessionCookie = cookieStore?.get ? cookieStore.get(AUTH_COOKIE_NAME)?.value : undefined;
     if (sessionCookie) {
       const verifiedSession = await verifySessionCookie(sessionCookie);
       isPersistent = verifiedSession?.rememberMe === true;
@@ -27,10 +32,11 @@ export async function createClient(config?: CreateClientConfig) {
   return createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
       get(name: string) {
-        return cookieStore.get(name)?.value;
+        return cookieStore?.get ? cookieStore.get(name)?.value : undefined;
       },
       set(name: string, value: string, options: CookieOptions) {
         try {
+          if (!cookieStore?.set) return;
           const finalOptions: CookieOptions = isPersistent
             ? options
             : {
@@ -46,6 +52,7 @@ export async function createClient(config?: CreateClientConfig) {
       },
       remove(name: string, options: CookieOptions) {
         try {
+          if (!cookieStore?.set) return;
           cookieStore.set({ name, value: "", ...options });
         } catch {
           // The `delete` method was called from a Server Component.

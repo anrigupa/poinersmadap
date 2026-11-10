@@ -1,6 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+
+function safeRevalidatePath(path: string, type?: "page" | "layout") {
+  try {
+    safeRevalidatePath(path, type);
+  } catch {
+    // Non-request context
+  }
+}
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentSession } from "@/features/auth/actions/authActions";
@@ -540,9 +548,9 @@ export async function submitAchievementAction(formData: unknown) {
   // Also push to in-memory store so it shows immediately across session
   IN_MEMORY_STUDENT_MERITS.unshift(newAchievement);
 
-  revalidatePath("/siswa/merits");
-  revalidatePath("/siswa");
-  revalidatePath("/admin/students");
+  safeRevalidatePath("/siswa/merits");
+  safeRevalidatePath("/siswa");
+  safeRevalidatePath("/admin/students");
 
   return {
     success: true,
@@ -681,11 +689,11 @@ export async function applyMeritReductionAction(formData: unknown) {
   // Save to in-memory audit log
   IN_MEMORY_POINT_REDUCTIONS.unshift(reductionRecord);
 
-  revalidatePath("/siswa/merits");
-  revalidatePath("/siswa");
-  revalidatePath("/admin/students");
-  revalidatePath("/guru");
-  revalidatePath("/guru/counseling");
+  safeRevalidatePath("/siswa/merits");
+  safeRevalidatePath("/siswa");
+  safeRevalidatePath("/admin/students");
+  safeRevalidatePath("/guru");
+  safeRevalidatePath("/guru/counseling");
 
   return {
     success: true,
@@ -751,10 +759,10 @@ export async function verifyAchievementAction(
     }
   }
 
-  revalidatePath("/siswa/merits");
-  revalidatePath("/siswa");
-  revalidatePath("/admin/students");
-  revalidatePath("/guru/counseling");
+  safeRevalidatePath("/siswa/merits");
+  safeRevalidatePath("/siswa");
+  safeRevalidatePath("/admin/students");
+  safeRevalidatePath("/guru/counseling");
 
   return {
     success: true,
