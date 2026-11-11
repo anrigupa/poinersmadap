@@ -4,6 +4,9 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "POINER SMADAP | Sistem Poin Pelanggaran & Karakter Siswa",
   description: "Aplikasi Web Pemantauan Ketertiban, Poin Pelanggaran, dan Penghargaan Karakter Siswa Terintegrasi.",
+  icons: {
+    icon: "/assets/favicon.ico",
+  },
 };
 
 export default function RootLayout({

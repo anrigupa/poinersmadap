@@ -18,6 +18,7 @@ import {
 import { StudentItem } from "@/features/students/types";
 import { ViolationItem } from "@/features/rules/types";
 import { addViolationSchema, AddViolationFormData } from "@/features/teacher-dashboard/schemas";
+import ViolationSelector from "@/components/ui/ViolationSelector";
 
 interface AddViolationModalProps {
   isOpen: boolean;
@@ -114,15 +115,21 @@ export default function AddViolationModal({
   };
 
   // Handle rule selection
-  const handleSelectRule = (ruleId: string) => {
-    const found = rules.find((r) => r.id === ruleId);
-    if (found) {
-      setSelectedRule(found);
-      setValue("violationTypeId", found.id);
-      setValue("ruleCode", found.code);
-      setValue("violationName", found.name);
-      setValue("categoryName", found.categoryName);
-      setValue("points", found.points);
+  const handleSelectRule = (ruleId: string, rule: ViolationItem | null) => {
+    if (rule) {
+      setSelectedRule(rule);
+      setValue("violationTypeId", rule.id, { shouldValidate: true });
+      setValue("ruleCode", rule.code);
+      setValue("violationName", rule.name);
+      setValue("categoryName", rule.categoryName);
+      setValue("points", rule.points);
+    } else {
+      setSelectedRule(null);
+      setValue("violationTypeId", "", { shouldValidate: true });
+      setValue("ruleCode", "");
+      setValue("violationName", "");
+      setValue("categoryName", "");
+      setValue("points", 5);
     }
   };
 
@@ -308,18 +315,14 @@ export default function AddViolationModal({
             <label className="block text-xs font-semibold text-slate-700 mb-1">
               Pasal / Jenis Pelanggaran <span className="text-red-500">*</span>
             </label>
-            <select
+            <ViolationSelector
+              rules={rules}
               value={selectedRule?.id || ""}
-              onChange={(e) => handleSelectRule(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white focus:border-blue-500 focus:outline-hidden transition"
-            >
-              <option value="">-- Pilih Pasal Pelanggaran --</option>
-              {rules.map((r) => (
-                <option key={r.id} value={r.id}>
-                  [{r.code}] {r.name} ({r.categoryName} • +{r.points} Poin)
-                </option>
-              ))}
-            </select>
+              onChange={handleSelectRule}
+              placeholder="-- Pilih Jenis Pelanggaran --"
+              searchPlaceholder="Cari jenis pelanggaran..."
+              error={errors.violationTypeId?.message}
+            />
             {errors.violationTypeId && (
               <p className="text-[11px] text-red-500 mt-1">
                 {errors.violationTypeId.message}
